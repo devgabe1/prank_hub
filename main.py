@@ -20,18 +20,15 @@ class PrankHubApp(ctk.CTk):
         self.prank_list = [
             {
                 "nome": "Rickroll", 
-                "descricao": "Abre o navegador no vídeo clássico.", 
-                "funcao": self.logic_rickroll
+                "descricao": "Abre o navegador e depois a janela volta.", 
+                "funcao": self.logic_rickroll,
+                "esconder_para_sempre": False # A janela VAI voltar
             },
             {
-                "nome": "Som Irritante", 
-                "descricao": "Toca bipes do sistema por 5 segundos.", 
-                "funcao": self.logic_beep
-            },
-            {
-                "nome": "Falso Erro", 
-                "descricao": "Exibe uma caixa de erro assustadora.", 
-                "funcao": self.logic_fake_error
+                "nome": "Modo Fantasma", 
+                "descricao": "A janela some para sempre, mas o processo continua rodando.", 
+                "funcao": self.logic_fantasma,
+                "esconder_para_sempre": True  # A janela NÃO volta
             }
         ]
 
@@ -58,29 +55,38 @@ class PrankHubApp(ctk.CTk):
             lbl_nome.pack(side="left", padx=15, pady=15)
 
             # Botão de iniciar que aponta para a função específica
-            # Usamos uma função lambda para passar a função correta para o mecanismo de ocultação
+            # Usamos o .get() para evitar erros caso você esqueça de colocar a chave em alguma pegadinha
+            ocultar_flag = prank.get("esconder_para_sempre", False)
+            
             btn_iniciar = ctk.CTkButton(
                 card, 
                 text="Iniciar", 
-                command=lambda f=prank["funcao"]: self.execute_prank_thread(f)
+                command=lambda f=prank["funcao"], ocultar=ocultar_flag: self.execute_prank_thread(f, ocultar)
             )
             btn_iniciar.pack(side="right", padx=15, pady=15)
 
     # ==========================================
     # 2. O MECANISMO DE OCULTAÇÃO E THREADS (O motor)
     # ==========================================
-    def execute_prank_thread(self, target_function):
+    def execute_prank_thread(self, target_function, esconder_para_sempre):
         """Oculta a GUI e inicia a função recebida em uma Thread."""
-        self.withdraw() # Esconde a janela moderna
+        self.withdraw() # Esconde a janela moderna imediatamente
         
-        # Cria a thread passando a função específica da pegadinha
-        thread = threading.Thread(target=self.thread_wrapper, args=(target_function,))
+        # Passa a flag 'esconder_para_sempre' para dentro da thread
+        thread = threading.Thread(target=self.thread_wrapper, args=(target_function, esconder_para_sempre))
         thread.start()
 
-    def thread_wrapper(self, target_function):
-        """Roda a pegadinha e, quando terminar, chama a GUI de volta."""
-        target_function() # Executa a pegadinha
-        self.after(0, self.deiconify) # Retorna a GUI em segurança
+    def thread_wrapper(self, target_function, esconder_para_sempre):
+        """Roda a pegadinha e verifica se deve chamar a GUI de volta."""
+        target_function() # Executa a pegadinha (ex: toca o som, faz um loop infinito, etc)
+        
+        # A MÁGICA ACONTECE AQUI:
+        if esconder_para_sempre == False:
+            self.after(0, self.deiconify) # Retorna a GUI em segurança
+        else:
+            print("Processo oculto para sempre. A interface não será restaurada.")
+            # Como não chamamos o deiconify, o 'mainloop()' do tkinter continua rodando,
+            # mas nenhuma janela existe visualmente. O script virou um processo fantasma.
 
     # ==========================================
     # 3. A LÓGICA DAS PEGADINHAS (As funções reais)
@@ -103,6 +109,14 @@ class PrankHubApp(ctk.CTk):
         time.sleep(1)
         tkinter.messagebox.showerror("CRITICAL_FAILURE", "Seu sistema está com excesso de alegria. \nPor favor, reinicie e fique triste.")
 
+    def logic_fantasma(self):
+        import time
+        import winsound
+        # Um loop infinito rodando de forma invisível
+        while True:
+            # Toca um bipe irritante a cada 10 segundos para sempre
+            winsound.Beep(500, 200)
+            time.sleep(10)
 
 if __name__ == "__main__":
     app = PrankHubApp()
