@@ -1,6 +1,14 @@
 import customtkinter as ctk
 import threading
+
+# imports som periódico
 import time
+import winsound
+import comtypes
+from ctypes import cast, POINTER
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+
 # imports randomização do mouse
 import ctypes
 import time
@@ -23,21 +31,15 @@ class PrankHubApp(ctk.CTk):
         # ==========================================
         self.prank_list = [
             {
-                "nome": "Rickroll", 
-                "descricao": "Abre o navegador e depois a janela volta.", 
-                "funcao": self.logic_rickroll,
-                "esconder_para_sempre": False # A janela VAI voltar
-            },
-            {
-                "nome": "Modo Fantasma", 
-                "descricao": "A janela some para sempre, mas o processo continua rodando.", 
-                "funcao": self.logic_fantasma,
-                "esconder_para_sempre": True  # A janela NÃO volta
-            },
-            {
                 "nome": "Randomizar Mouse",
                 "descricao": "randomiza a sense",
                 "funcao": self.randomizar_velocidade_mouse,
+                "esconder_para_sempre": False
+            },
+            {
+                "nome": "Som periódico",
+                "descricao": "periódico",
+                "funcao": self.alarme_sonoro_periodico,
                 "esconder_para_sempre": False
             }
         ]
@@ -101,23 +103,6 @@ class PrankHubApp(ctk.CTk):
     # ==========================================
     # 3. A LÓGICA DAS PEGADINHAS (As funções reais)
     # ==========================================
-    def logic_rickroll(self):
-        import webbrowser
-        time.sleep(1) # Simula um pequeno atraso
-        webbrowser.open("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        time.sleep(2) # Tempo que a GUI fica oculta
-
-    def logic_beep(self):
-        import winsound
-        for _ in range(5):
-            winsound.Beep(800, 300)
-            time.sleep(0.5)
-
-    def logic_fake_error(self):
-        # Como a janela principal está oculta, usamos tkinter padrão só para a caixa de mensagem
-        import tkinter.messagebox
-        time.sleep(1)
-        tkinter.messagebox.showerror("CRITICAL_FAILURE", "Seu sistema está com excesso de alegria. \nPor favor, reinicie e fique triste.")
 
     def logic_fantasma(self):
         import time
@@ -135,31 +120,65 @@ class PrankHubApp(ctk.CTk):
         """
         # Constante da API do Windows (SystemParametersInfo) para alterar a velocidade do mouse
         SPI_SETMOUSESPEED = 0x0071
+                
+        while True:
+            # Gera uma velocidade aleatória entre 1 (muito lento) e 20 (muito rápido)
+            nova_velocidade = random.randint(1, 20)
+            
+            # Chama a API do Windows (user32.dll)
+            # Argumentos: (Ação, Parametro1, Parametro2, AtualizarRegistro)
+            # Passamos 0 no final para que a mudança não seja salva permanentemente no registro do Windows
+            ctypes.windll.user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, nova_velocidade, 0)
+            
+            print(f"Velocidade atual do mouse: {nova_velocidade}")
+            
+            # Aguarda 300 segundos
+            time.sleep(300)
+                
+
+    def alarme_sonoro_periodico(self):
+        print("Iniciando o serviço de áudio...")
         
-        # Velocidade padrão do Windows para restaurar ao encerrar
-        VELOCIDADE_PADRAO = 6 
+        # 1. Inicializa o COM para esta Thread
+        comtypes.CoInitialize()
+
         try:
+            # 2. Pega o enumerador de dispositivos de forma explícita
+            # Isso evita o erro de 'AudioDevice object has no attribute Activate'
+            device_enumerator = AudioUtilities.GetDeviceEnumerator()
+            
+            # 3. Obtém o dispositivo de saída padrão (0 = eRender, 0 = eConsole)
+            # O método GetDefaultAudioEndpoint é o que realmente retorna o objeto com o método Activate
+            devices = device_enumerator.GetDefaultAudioEndpoint(0, 0)
+            
+            # 4. Ativa a interface de controle de volume
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = cast(interface, POINTER(IAudioEndpointVolume))
+
+            intervalo_segundos = 4 * 60 * 60
+
             while True:
-                # Gera uma velocidade aleatória entre 1 (muito lento) e 20 (muito rápido)
-                nova_velocidade = random.randint(1, 20)
+                # Captura o volume atual
+                volume_original = volume.GetMasterVolumeLevelScalar()
                 
-                # Chama a API do Windows (user32.dll)
-                # Argumentos: (Ação, Parametro1, Parametro2, AtualizarRegistro)
-                # Passamos 0 no final para que a mudança não seja salva permanentemente no registro do Windows
-                ctypes.windll.user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, nova_velocidade, 0)
+                # Volume no talo (1.0 = 100%)
+                volume.SetMasterVolumeLevelScalar(1.0, None)
                 
-                print(f"Velocidade atual do mouse: {nova_velocidade}")
+                # Bipe (2500Hz, 1000ms)
+                winsound.Beep(2500, 1000)
                 
-                # Aguarda 300 segundos
-                time.sleep(300)
+                # Restaura o volume original
+                volume.SetMasterVolumeLevelScalar(volume_original, None)
                 
-        except KeyboardInterrupt:
-            # Captura o momento em que o professor (ou você) interrompe o script no terminal
-            print("\nInterrupção detectada. Encerrando o script...")
+                print(f"[{time.strftime('%H:%M:%S')}] Volume restaurado. Dormindo por 4h...")
+                time.sleep(intervalo_segundos)
+
+        except Exception as e:
+            print(f"Erro na thread de áudio: {e}")
         finally:
-            # O bloco 'finally' garante que o mouse volte ao normal mesmo que o script dê erro
-            ctypes.windll.user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, VELOCIDADE_PADRAO, 0)
-            print("Velocidade do mouse restaurada para o padrão (10).")
+            # 5. Sempre desinicializa o COM ao encerrar a thread
+            comtypes.CoUninitialize()
+
 
 if __name__ == "__main__":
     app = PrankHubApp()
