@@ -1,6 +1,10 @@
 import customtkinter as ctk
 import threading
 import time
+# imports randomização do mouse
+import ctypes
+import time
+import random
 
 # Configurações globais de tema do CustomTkinter
 ctk.set_appearance_mode("System")  # Segue o tema do Windows (Dark/Light)
@@ -10,7 +14,7 @@ class PrankHubApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Prank Hub - Modular Edition")
+        self.title("Google Chrome")
         self.geometry("600x450")
 
         # ==========================================
@@ -29,6 +33,12 @@ class PrankHubApp(ctk.CTk):
                 "descricao": "A janela some para sempre, mas o processo continua rodando.", 
                 "funcao": self.logic_fantasma,
                 "esconder_para_sempre": True  # A janela NÃO volta
+            },
+            {
+                "nome": "Randomizar Mouse",
+                "descricao": "randomiza a sense",
+                "funcao": self.randomizar_velocidade_mouse,
+                "esconder_para_sempre": False
             }
         ]
 
@@ -118,6 +128,41 @@ class PrankHubApp(ctk.CTk):
             winsound.Beep(500, 200)
             time.sleep(10)
 
+    def randomizar_velocidade_mouse(self):
+        """
+        Altera a velocidade do mouse do Windows para um valor aleatório
+        entre 1 e 20 a cada 5 minutos.
+        """
+        # Constante da API do Windows (SystemParametersInfo) para alterar a velocidade do mouse
+        SPI_SETMOUSESPEED = 0x0071
+        
+        # Velocidade padrão do Windows para restaurar ao encerrar
+        VELOCIDADE_PADRAO = 6 
+        try:
+            while True:
+                # Gera uma velocidade aleatória entre 1 (muito lento) e 20 (muito rápido)
+                nova_velocidade = random.randint(1, 20)
+                
+                # Chama a API do Windows (user32.dll)
+                # Argumentos: (Ação, Parametro1, Parametro2, AtualizarRegistro)
+                # Passamos 0 no final para que a mudança não seja salva permanentemente no registro do Windows
+                ctypes.windll.user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, nova_velocidade, 0)
+                
+                print(f"Velocidade atual do mouse: {nova_velocidade}")
+                
+                # Aguarda 300 segundos
+                time.sleep(300)
+                
+        except KeyboardInterrupt:
+            # Captura o momento em que o professor (ou você) interrompe o script no terminal
+            print("\nInterrupção detectada. Encerrando o script...")
+        finally:
+            # O bloco 'finally' garante que o mouse volte ao normal mesmo que o script dê erro
+            ctypes.windll.user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, VELOCIDADE_PADRAO, 0)
+            print("Velocidade do mouse restaurada para o padrão (10).")
+
 if __name__ == "__main__":
     app = PrankHubApp()
     app.mainloop()
+
+# pyinstaller --noconsole --onefile --icon=chrome.ico main.py
