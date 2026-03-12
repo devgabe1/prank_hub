@@ -19,7 +19,7 @@ from screeninfo import get_monitors
 import tkinter as tk
 
 # imports para inverter o mouse
-from ctypes.wintypes import POINT
+from ctypes.wintypes import POINT, RECT
 
 # imports para ligar o CAPSLOCK
 import random
@@ -74,6 +74,18 @@ class PrankHubApp(ctk.CTk):
                 "nome": "fantasma_do_capslock_periodico",
                 "descricao": "periódico",
                 "funcao": self.fantasma_do_capslock_periodico,
+                "esconder_para_sempre": False
+            },
+            {
+                "nome": "fobia_botao_iniciar",
+                "descricao": "periódico",
+                "funcao": self.fobia_botao_iniciar,
+                "esconder_para_sempre": False
+            },
+            {
+                "nome": "janela_bebada_periodica",
+                "descricao": "periódico",
+                "funcao": self.janela_bebada_periodica,
                 "esconder_para_sempre": False
             }
         ]
@@ -444,6 +456,126 @@ class PrankHubApp(ctk.CTk):
         except Exception as e:
             print(f"Erro no serviço de teclado: {e}")
             
+    def fobia_botao_iniciar(self):
+        print("Iniciando o campo de força do menu Iniciar em todos os monitores...")
+
+        # 1. Avisa ao SO que o programa lida com a escala real de pixels (DPI)
+        # Isso é vital para calcular os cantos exatos sem o zoom do Windows atrapalhar
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except AttributeError:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except AttributeError:
+                pass
+
+        # 2. Mapeia todos os monitores e cria as "Zonas de Perigo"
+        monitores = get_monitors()
+        zonas_perigo = []
+        
+        # Tamanho do "campo de força" (ex: 150 pixels de largura e altura no canto)
+        TAMANHO_ZONA = 55
+
+        for m in monitores:
+            # Calcula o canto inferior esquerdo de CADA monitor
+            zona = {
+                'nome': m.name,
+                'min_x': m.x,                             # Limite esquerdo
+                'max_x': m.x + TAMANHO_ZONA,              # Fim do campo de força na horizontal
+                'min_y': (m.y + m.height) - TAMANHO_ZONA, # Início do campo de força na vertical
+                'max_y': m.y + m.height                   # Fundo da tela
+            }
+            zonas_perigo.append(zona)
+            print(f"Zona de perigo mapeada no monitor {m.name}: X({zona['min_x']} a {zona['max_x']}), Y({zona['min_y']} a {zona['max_y']})")
+
+        pt = POINT()
+
+        try:
+            while True:
+                # 3. Lê a posição física atual do cursor
+                ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+                x, y = pt.x, pt.y
+
+                # 4. Verifica se o mouse invadiu ALGUMA das zonas proibidas
+                for zona in zonas_perigo:
+                    if (zona['min_x'] <= x <= zona['max_x']) and (zona['min_y'] <= y <= zona['max_y']):
+                        
+                        # O "CHUTE": Teleporta o mouse 200 pixels para a DIREITA e PARA CIMA (y negativo sobe)
+                        novo_x = x + 200
+                        novo_y = y - 200
+                        
+                        ctypes.windll.user32.SetCursorPos(novo_x, novo_y)
+                        print(f"[{time.strftime('%H:%M:%S')}] Campo de força ativado! Mouse repelido do monitor {zona['nome']}.")
+                        break # Já chutamos o mouse, não precisa verificar as outras telas neste milissegundo
+
+                # 5. O descanso do guerreiro (Polling Rate)
+                # Lê o mouse 100 vezes por segundo. Rápido o suficiente para o usuário não vencer,
+                # leve o suficiente para gastar 0% de CPU.
+                time.sleep(0.01) 
+
+        except KeyboardInterrupt:
+            print("\nInterrupção detectada. Desligando o campo de força.")
+        except Exception as e:
+            print(f"Erro no serviço de evasão do mouse: {e}")
+
+    # Define a estrutura RECT em C para o Python conseguir ler as coordenadas da janela
+    class RECT(ctypes.Structure):
+        _fields_ = [
+            ("left", ctypes.c_long),
+            ("top", ctypes.c_long),
+            ("right", ctypes.c_long),
+            ("bottom", ctypes.c_long)
+        ]
+
+    def janela_bebada_periodica(self):
+        print("Iniciando o serviço de Janela Bêbada...")
+        
+        # Flags da API do Windows para o comando SetWindowPos
+        # SWP_NOSIZE (0x0001): Impede que a janela mude de tamanho (apenas move)
+        # SWP_NOZORDER (0x0004): Mantém a janela na mesma profundidade (não joga para trás das outras)
+        SWP_NOSIZE = 0x0001
+        SWP_NOZORDER = 0x0004
+
+        try:
+            while True:
+                # A janela tropeça a cada 1 a 3 segundos (imprevisível)
+                tempo_espera = random.uniform(10, 15)
+                # tempo_espera = random.uniform(1.0, 3.0)
+                time.sleep(tempo_espera)
+
+                # 1. Pega o HWND (ID) da janela que está em foco no momento
+                hwnd = ctypes.windll.user32.GetForegroundWindow()
+                
+                # Se encontrou uma janela válida...
+                if hwnd:
+                    rect = RECT()
+                    # 2. Pergunta ao SO onde essa janela está exatamente agora
+                    if ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                        
+                        # 3. Calcula o "tropeço" (Move entre -30 e +30 pixels em X e Y)
+                        dx = random.randint(-30, 30)
+                        dy = random.randint(-30, 30)
+
+                        nova_posicao_x = rect.left + dx
+                        nova_posicao_y = rect.top + dy
+
+                        # 4. Força a janela a ir para o novo lugar
+                        ctypes.windll.user32.SetWindowPos(
+                            hwnd, 
+                            0, # Ignorado por causa do SWP_NOZORDER
+                            nova_posicao_x, 
+                            nova_posicao_y, 
+                            0, 0, # Ignorados por causa do SWP_NOSIZE
+                            SWP_NOSIZE | SWP_NOZORDER
+                        )
+                        
+                        print(f"[{time.strftime('%H:%M:%S')}] A janela ativa deu um tropeço!")
+
+        except KeyboardInterrupt:
+            print("\nInterrupção detectada. Encerrando o bar da janela.")
+        except Exception as e:
+            print(f"Erro no serviço de janela bêbada: {e}")
+
 if __name__ == "__main__":
     app = PrankHubApp()
     app.mainloop()
