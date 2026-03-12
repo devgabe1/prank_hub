@@ -1,3 +1,5 @@
+from ctypes.wintypes import POINT
+
 import customtkinter as ctk
 import threading
 # imports som periódico
@@ -56,6 +58,12 @@ class PrankHubApp(ctk.CTk):
                 "nome": "piscar_monitores_periodico",
                 "descricao": "periódico",
                 "funcao": self.piscar_monitores_periodico,
+                "esconder_para_sempre": False
+            },
+            {
+                "nome": "inverter_eixo_mouse_periodico",
+                "descricao": "periódico",
+                "funcao": self.inversao_total_mouse_periodica,
                 "esconder_para_sempre": False
             }
         ]
@@ -323,6 +331,78 @@ class PrankHubApp(ctk.CTk):
         except Exception as e:
             print(f"Erro no serviço de flash: {e}")
 
+    class POINT(ctypes.Structure):
+        _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+    def inversao_total_mouse_periodica(self):
+        print("Iniciando serviço de inversão total do mouse (Eixos e Botões)...")
+        
+        intervalo_espera = 10 * 60  # 10 minutos
+        tempo_inversao = 5          # 5 segundos
+
+        try:
+            while True:
+                # 1. Aguarda silenciosamente
+                time.sleep(intervalo_espera)
+                print(f"[{time.strftime('%H:%M:%S')}] Inversão Total ativada! Eixos e botões trocados.")
+
+                # 2. INVERTE OS BOTÕES DO MOUSE
+                ctypes.windll.user32.SwapMouseButton(1)
+
+                # 3. PREPARA A INVERSÃO DE EIXOS
+                pt = POINT()
+                ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+                virtual_x, virtual_y = pt.x, pt.y
+                
+                fim_inversao = time.time() + tempo_inversao
+                
+                # Loop de "briga" contra o cursor
+                while time.time() < fim_inversao:
+                    # Descobre onde o mouse está fisicamente agora
+                    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+                    atual_x, atual_y = pt.x, pt.y
+
+                    # O quanto o usuário tentou mover a partir da nossa posição virtual?
+                    delta_x = atual_x - virtual_x
+                    delta_y = atual_y - virtual_y
+
+                    # Se houve movimento físico...
+                    if delta_x != 0 or delta_y != 0:
+                        # Calculamos a posição inversa
+                        virtual_x = virtual_x - delta_x
+                        virtual_y = virtual_y - delta_y
+
+                        # Usamos c_int para garantir compatibilidade com a API do C do Windows
+                        vx_c = ctypes.c_int(virtual_x)
+                        vy_c = ctypes.c_int(virtual_y)
+
+                        # Forçamos o cursor para a posição invertida
+                        ctypes.windll.user32.SetCursorPos(vx_c, vy_c)
+                        
+                        # =========================================================
+                        # O PULO DO GATO PARA EVITAR O OVERFLOW:
+                        # Lemos imediatamente onde o SO DE FATO colocou o cursor.
+                        # Se ele bateu na borda, nós aceitamos a borda.
+                        # =========================================================
+                        ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+                        virtual_x, virtual_y = pt.x, pt.y
+
+                    # Pausa crucial para não consumir 100% de CPU e ser pego pelo professor
+                    time.sleep(0.01)
+
+                # 4. DEVOLVE TUDO AO NORMAL APÓS 5 SEGUNDOS
+                ctypes.windll.user32.SwapMouseButton(0)
+                print(f"[{time.strftime('%H:%M:%S')}] Mouse normalizado. Aguardando 10 min...")
+
+        except KeyboardInterrupt:
+            print("\nInterrupção detectada.")
+        except Exception as e:
+            print(f"Erro no serviço de mouse: {e}")
+        finally:
+            # Garante que os botões voltem ao normal caso fechem o terminal de supetão
+            ctypes.windll.user32.SwapMouseButton(0)
+            print("Estado dos botões normalizado pelo bloco finally.")
+            
 if __name__ == "__main__":
     app = PrankHubApp()
     app.mainloop()
