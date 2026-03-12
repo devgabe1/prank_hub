@@ -1,3 +1,5 @@
+import webview
+
 import customtkinter as ctk
 import threading
 
@@ -11,7 +13,6 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
 # imports randomização do mouse
 import ctypes
-import time
 import random
 
 # imports tela azul
@@ -27,280 +28,127 @@ import random
 # imports spongebob case
 import pyperclip
 
-# Configurações globais de tema do CustomTkinter
-ctk.set_appearance_mode("System")  # Segue o tema do Windows (Dark/Light)
-ctk.set_default_color_theme("blue") # Tema de cores
+# Define a estrutura RECT em C para o Python conseguir ler as coordenadas da janela
+class RECT(ctypes.Structure):
+    _fields_ = [
+        ("left", ctypes.c_long),
+        ("top", ctypes.c_long),
+        ("right", ctypes.c_long),
+        ("bottom", ctypes.c_long)
+    ]
 
-class PrankHubApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+class POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
-        self.title("Google Chrome")
-        self.geometry("600x450")
-
-        # ==========================================
-        # 1. O SEU "BANCO DE DADOS" DE PEGADINHAS
-        # Para adicionar uma nova, basta criar a função e colocá-la aqui!
-        # ==========================================
-        self.prank_list = [
-            {
-                "nome": "Randomizar Mouse",
-                "descricao": "randomiza a sense",
-                "funcao": self.randomizar_velocidade_mouse,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "Som periódico",
-                "descricao": "periódico",
-                "funcao": self.alarme_sonoro_periodico,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "tela_azul_falsa",
-                "descricao": "periódico",
-                "funcao": self.tela_azul_falsa_multi_tela,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "piscar_monitores_periodico",
-                "descricao": "periódico",
-                "funcao": self.piscar_monitores_periodico,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "inverter_eixo_mouse_periodico",
-                "descricao": "periódico",
-                "funcao": self.inversao_total_mouse_periodica,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "fantasma_do_capslock_periodico",
-                "descricao": "periódico",
-                "funcao": self.fantasma_do_capslock_periodico,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "fobia_botao_iniciar",
-                "descricao": "periódico",
-                "funcao": self.fobia_botao_iniciar,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "janela_bebada_periodica",
-                "descricao": "periódico",
-                "funcao": self.janela_bebada_periodica,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "botao_fechar_escorregadio",
-                "descricao": "periódico",
-                "funcao": self.botao_fechar_escorregadio,
-                "esconder_para_sempre": False
-            },
-            {
-                "nome": "sabotador_clipboard_periodico",
-                "descricao": "periódico",
-                "funcao": self.sabotador_clipboard_periodico,
-                "esconder_para_sempre": False
-            }
-        ]
-
-        self.build_ui()
-
-    def build_ui(self):
-        """Constrói a interface com Checkboxes dinâmicos."""
-        # Título principal
-        self.label_titulo = ctk.CTkLabel(self, text="Selecione as Pegadinhas", font=ctk.CTkFont(size=20, weight="bold"))
-        self.label_titulo.pack(pady=(20, 10))
-
-        # Frame rolável
-        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=500, height=300)
-        self.scrollable_frame.pack(pady=10, padx=20, fill="both", expand=True)
-
-        # Laço para criar os checkboxes
-        for prank in self.prank_list:
-            card = ctk.CTkFrame(self.scrollable_frame)
-            card.pack(pady=5, padx=10, fill="x")
-
-            # ==========================================================
-            # A MÁGICA DO CHECKBOX: Criamos uma variável booleana nativa do 
-            # Tkinter para guardar se a caixa está marcada (True) ou não (False).
-            # Salvamos essa variável dentro do próprio dicionário da pegadinha!
-            # ==========================================================
-            var_checkbox = ctk.BooleanVar(value=False)
-            prank["variavel_estado"] = var_checkbox 
-
-            # Cria o Checkbox
-            checkbox = ctk.CTkCheckBox(
-                card, 
-                text=prank["nome"], 
-                variable=var_checkbox, 
-                font=ctk.CTkFont(size=14, weight="bold")
-            )
-            checkbox.pack(side="left", padx=15, pady=10)
-
-            # Adiciona a descrição pequenininha ao lado (opcional, mas fica bonito)
-            lbl_desc = ctk.CTkLabel(card, text=prank["descricao"], font=ctk.CTkFont(size=11), text_color="gray")
-            lbl_desc.pack(side="right", padx=15)
-
-        # Botão Master para Iniciar Tudo
-        self.btn_iniciar_todas = ctk.CTkButton(
-            self, 
-            text="INICIAR PEGADINHAS SELECIONADAS", 
-            fg_color="#8B0000", # Vermelho escuro para dar um ar de "botão de pânico"
-            hover_color="#FF0000",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            command=self.executar_multiplas_threads
-        )
-        self.btn_iniciar_todas.pack(pady=20)
-
-    # ==========================================
-    # 2. O NOVO MECANISMO DE MULTITHREADING
-    # ==========================================
-    def executar_multiplas_threads(self):
-        """Lê quais checkboxes estão marcados e lança uma Thread para cada um."""
+def randomizar_velocidade_mouse():
+    """
+    Altera a velocidade do mouse do Windows para um valor aleatório
+    entre 1 e 20 a cada 5 minutos.
+    """
+    # Constante da API do Windows (SystemParametersInfo) para alterar a velocidade do mouse
+    SPI_SETMOUSESPEED = 0x0071
+            
+    while True:
+        # Gera uma velocidade aleatória entre 1 (muito lento) e 20 (muito rápido)
+        nova_velocidade = random.randint(1, 20)
         
-        # 1. Filtra a lista usando List Comprehension: pega apenas as que estão com value=True
-        selecionadas = [p for p in self.prank_list if p["variavel_estado"].get() == True]
-
-        # Trava de segurança: se o usuário clicar sem marcar nada
-        if len(selecionadas) == 0:
-            print("Nenhuma pegadinha selecionada!")
-            return
-
-        print(f"Preparando para iniciar {len(selecionadas)} pegadinhas simultaneamente...")
+        # Chama a API do Windows (user32.dll)
+        # Argumentos: (Ação, Parametro1, Parametro2, AtualizarRegistro)
+        # Passamos 0 no final para que a mudança não seja salva permanentemente no registro do Windows
+        ctypes.windll.user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, nova_velocidade, 0)
         
-        # 2. Esconde a interface gráfica principal
-        self.withdraw()
-
-        # 3. O Loop de Disparo (Aqui o SO assume o controle)
-        for prank in selecionadas:
-            # Pegamos a função que está salva no banco de dados
-            funcao_alvo = prank["funcao"]
+        print(f"Velocidade atual do mouse: {nova_velocidade}")
+        
+        # Aguarda 300 segundos
+        time.sleep(300)
             
-            # Criamos a Thread. 
-            # daemon=True significa que as pegadinhas rodam em segundo plano
-            # atreladas ao processo principal.
-            t = threading.Thread(target=funcao_alvo, daemon=True)
-            t.start()
-            
-            print(f"-> Thread ativada: {prank['nome']}")
-            
-        print("Todas as threads lançadas. A interface agora é um processo fantasma.")
-    # ==========================================
-    # 3. A LÓGICA DAS PEGADINHAS (As funções reais)
-    # ==========================================
-    # Define a estrutura RECT em C para o Python conseguir ler as coordenadas da janela
-    class RECT(ctypes.Structure):
-        _fields_ = [
-            ("left", ctypes.c_long),
-            ("top", ctypes.c_long),
-            ("right", ctypes.c_long),
-            ("bottom", ctypes.c_long)
-        ]
+def alarme_sonoro():
+    print("Iniciando o serviço de áudio...")
     
-    class POINT(ctypes.Structure):
-        _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+    # 1. Inicializa o COM para esta Thread
+    comtypes.CoInitialize()
 
-    def randomizar_velocidade_mouse(self):
-        """
-        Altera a velocidade do mouse do Windows para um valor aleatório
-        entre 1 e 20 a cada 5 minutos.
-        """
-        # Constante da API do Windows (SystemParametersInfo) para alterar a velocidade do mouse
-        SPI_SETMOUSESPEED = 0x0071
-                
+    try:
+        # 2. Pega o enumerador de dispositivos de forma explícita
+        # Isso evita o erro de 'AudioDevice object has no attribute Activate'
+        device_enumerator = AudioUtilities.GetDeviceEnumerator()
+        
+        # 3. Obtém o dispositivo de saída padrão (0 = eRender, 0 = eConsole)
+        # O método GetDefaultAudioEndpoint é o que realmente retorna o objeto com o método Activate
+        devices = device_enumerator.GetDefaultAudioEndpoint(0, 0)
+        
+        # 4. Ativa a interface de controle de volume
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume = cast(interface, POINTER(IAudioEndpointVolume))
+
+        intervalo_segundos = 4 * 60 * 60
+
         while True:
-            # Gera uma velocidade aleatória entre 1 (muito lento) e 20 (muito rápido)
-            nova_velocidade = random.randint(1, 20)
+            # Captura o volume atual
+            volume_original = volume.GetMasterVolumeLevelScalar()
             
-            # Chama a API do Windows (user32.dll)
-            # Argumentos: (Ação, Parametro1, Parametro2, AtualizarRegistro)
-            # Passamos 0 no final para que a mudança não seja salva permanentemente no registro do Windows
-            ctypes.windll.user32.SystemParametersInfoW(SPI_SETMOUSESPEED, 0, nova_velocidade, 0)
+            # Volume no talo (1.0 = 100%)
+            volume.SetMasterVolumeLevelScalar(1.0, None)
             
-            print(f"Velocidade atual do mouse: {nova_velocidade}")
+            # Bipe (2500Hz, 1000ms)
+            winsound.Beep(2500, 1000)
             
-            # Aguarda 300 segundos
-            time.sleep(300)
-                
-    def alarme_sonoro_periodico(self):
-        print("Iniciando o serviço de áudio...")
-        
-        # 1. Inicializa o COM para esta Thread
-        comtypes.CoInitialize()
-
-        try:
-            # 2. Pega o enumerador de dispositivos de forma explícita
-            # Isso evita o erro de 'AudioDevice object has no attribute Activate'
-            device_enumerator = AudioUtilities.GetDeviceEnumerator()
+            # Restaura o volume original
+            volume.SetMasterVolumeLevelScalar(volume_original, None)
             
-            # 3. Obtém o dispositivo de saída padrão (0 = eRender, 0 = eConsole)
-            # O método GetDefaultAudioEndpoint é o que realmente retorna o objeto com o método Activate
-            devices = device_enumerator.GetDefaultAudioEndpoint(0, 0)
-            
-            # 4. Ativa a interface de controle de volume
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            print(f"[{time.strftime('%H:%M:%S')}] Volume restaurado. Dormindo por 4h...")
+            time.sleep(intervalo_segundos)
 
-            intervalo_segundos = 4 * 60 * 60
+    except Exception as e:
+        print(f"Erro na thread de áudio: {e}")
+    finally:
+        # 5. Sempre desinicializa o COM ao encerrar a thread
+        comtypes.CoUninitialize()
 
-            while True:
-                # Captura o volume atual
-                volume_original = volume.GetMasterVolumeLevelScalar()
-                
-                # Volume no talo (1.0 = 100%)
-                volume.SetMasterVolumeLevelScalar(1.0, None)
-                
-                # Bipe (2500Hz, 1000ms)
-                winsound.Beep(2500, 1000)
-                
-                # Restaura o volume original
-                volume.SetMasterVolumeLevelScalar(volume_original, None)
-                
-                print(f"[{time.strftime('%H:%M:%S')}] Volume restaurado. Dormindo por 4h...")
-                time.sleep(intervalo_segundos)
+def tela_azul():
+    # Define o tempo de espera (5 horas = 5 * 60 * 60 segundos)
+    # Para testar se está funcionando agora, mude para 10 (10 segundos)
+    intervalo_espera = 5 * 60 * 60 
 
-        except Exception as e:
-            print(f"Erro na thread de áudio: {e}")
-        finally:
-            # 5. Sempre desinicializa o COM ao encerrar a thread
-            comtypes.CoUninitialize()
+    try:
+        while True:
+            # 1. O script dorme silenciosamente por 5 horas
+            print(f"[{time.strftime('%H:%M:%S')}] Temporizador ativado: Aguardando 5 horas para a BSOD...")
+            time.sleep(intervalo_espera)
 
-    def tela_azul_falsa_multi_tela(self):
-        print("Iniciando a BSOD falsa em todos os monitores...")
+            print("Iniciando a BSOD falsa em todos os monitores...")
 
-        # Avisa ao SO que o programa lida com a escala real (DPI)
-        try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except AttributeError:
+            # 2. Avisa ao SO que o programa lida com a escala real (DPI)
             try:
-                ctypes.windll.user32.SetProcessDPIAware()
+                ctypes.windll.shcore.SetProcessDpiAwareness(2)
             except AttributeError:
-                pass
+                try:
+                    ctypes.windll.user32.SetProcessDPIAware()
+                except AttributeError:
+                    pass
 
-        janelas = []
-        monitores = get_monitors()
-        
-        # 1. CRIAMOS A FUNÇÃO DO COMANDO SECRETO
-        def comando_secreto(event):
-            print("Comando secreto ativado! Encerrando a tela azul...")
-            raiz.destroy() # Destrói a janela principal, fechando todas as outras
+            janelas = []
+            monitores = get_monitors()
+            
+            # O comando secreto precisa ser recriado a cada nova janela
+            def comando_secreto(event):
+                print("Comando secreto ativado! Encerrando a tela azul...")
+                raiz.destroy() # Destrói a interface e encerra o mainloop
 
-        for indice, monitor in enumerate(monitores):
-            if indice == 0:
-                janela = tk.Tk()
-                raiz = janela
-            else:
-                janela = tk.Toplevel(raiz)
-            
-            janela.overrideredirect(True)
-            janela.geometry(f"{monitor.width}x{monitor.height}+{monitor.x}+{monitor.y}")
-            janela.configure(bg="#0000AA")
-            janela.config(cursor="none")
-            
-            if monitor.is_primary:
-                texto_bsod = """
+            for indice, monitor in enumerate(monitores):
+                if indice == 0:
+                    janela = tk.Tk()
+                    raiz = janela
+                else:
+                    janela = tk.Toplevel(raiz)
+                
+                janela.overrideredirect(True)
+                janela.geometry(f"{monitor.width}x{monitor.height}+{monitor.x}+{monitor.y}")
+                janela.configure(bg="#0000AA")
+                janela.config(cursor="none")
+                
+                if monitor.is_primary:
+                    texto_bsod = """
                 A problem has been detected and Windows has been shut down to prevent damage
                 to your computer.
 
@@ -326,407 +174,410 @@ class PrankHubApp(ctk.CTk):
 
                 *** tcpip.sys - Address FFFFF88001234567 base at FFFFF88001200000, DateStamp 4a5bc3fe
                 """
+                    label = tk.Label(janela, text=texto_bsod, bg="#0000AA", fg="white", 
+                                     font=("Courier New", 14), justify="left")
+                    label.pack(anchor="nw", padx=50, pady=50)
+
+                janela.attributes("-topmost", True)
                 
-                label = tk.Label(janela, text=texto_bsod, bg="#0000AA", fg="white", 
-                                font=("Courier New", 14), justify="left")
-                label.pack(anchor="nw", padx=50, pady=50)
+                janela.bind("<Control-J>", comando_secreto)
+                janela.bind("<Button-1>", lambda e: "break")
+                janela.bind("<Button-2>", lambda e: "break")
+                janela.bind("<Button-3>", lambda e: "break")
 
-            janela.attributes("-topmost", True)
+                janelas.append(janela)
+
+            if janelas:
+                # 3. O script trava aqui e exibe a tela azul.
+                raiz.mainloop() 
             
-            # =====================================================================
-            # 2. SUBSTITUÍMOS O BIND DO ESCAPE PELO COMANDO SECRETO
-            # <Control-J> significa Ctrl + J maiúsculo (ou seja, Ctrl + Shift + j)
-            # =====================================================================
-            janela.bind("<Control-J>", comando_secreto)
-            
-            # Bloqueia cliques acidentais do mouse para evitar que a janela perca o foco
-            janela.bind("<Button-1>", lambda e: "break")
-            janela.bind("<Button-2>", lambda e: "break")
-            janela.bind("<Button-3>", lambda e: "break")
+            # 4. Quando o professor apertar Ctrl+Shift+J, o mainloop acaba e o código chega aqui.
+            # O 'while True' vai fazer ele voltar lá para cima no 'time.sleep()'
+            print(f"[{time.strftime('%H:%M:%S')}] Tela Azul finalizada. Reiniciando o ciclo de 5 horas.")
 
-            janelas.append(janela)
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada. Desligando a Tela Azul.")
+    except Exception as e:
+        print(f"Erro no serviço de Tela Azul: {e}")
 
-        if janelas:
-            raiz.mainloop()
+def piscar_monitores():
+    print("Iniciando serviço de flash nos monitores...")
 
-    def piscar_monitores_periodico(self):
-        print("Iniciando serviço de flash nos monitores...")
-
-        # Avisa ao SO que o programa lida com a escala real (DPI)
+    # Avisa ao SO que o programa lida com a escala real (DPI)
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except AttributeError:
         try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+            ctypes.windll.user32.SetProcessDPIAware()
         except AttributeError:
-            try:
-                ctypes.windll.user32.SetProcessDPIAware()
-            except AttributeError:
-                pass
+            pass
 
-        # Intervalo de 5 minutos (300 segundos)
-        intervalo_segundos = 5 * 60
+    # Intervalo de 15 minutos
+    intervalo_segundos = 15 * 60
 
-        try:
-            while True:
-                janelas = []
-                monitores = get_monitors()
+    try:
+        while True:
+            janelas = []
+            monitores = get_monitors()
+            
+            # 1. Cria as janelas brancas para cada monitor
+            for indice, monitor in enumerate(monitores):
+                if indice == 0:
+                    janela = tk.Tk()
+                    raiz = janela
+                else:
+                    janela = tk.Toplevel(raiz)
                 
-                # 1. Cria as janelas brancas para cada monitor
-                for indice, monitor in enumerate(monitores):
-                    if indice == 0:
-                        janela = tk.Tk()
-                        raiz = janela
-                    else:
-                        janela = tk.Toplevel(raiz)
-                    
-                    janela.overrideredirect(True)
-                    janela.geometry(f"{monitor.width}x{monitor.height}+{monitor.x}+{monitor.y}")
-                    janela.configure(bg="black") # Cor branca para simular um flash
-                    janela.attributes("-topmost", True)
-                    
-                    # Força o SO a desenhar a janela imediatamente antes do loop principal
-                    janela.update_idletasks()
-                    janelas.append(janela)
-
-                # 2. Renderiza as janelas na tela
-                if janelas:
-                    raiz.update()
+                janela.overrideredirect(True)
+                janela.geometry(f"{monitor.width}x{monitor.height}+{monitor.x}+{monitor.y}")
+                janela.configure(bg="black") # Cor branca para simular um flash
+                janela.attributes("-topmost", True)
                 
-                # 3. Mantém a tela branca por apenas 500 milissegundos (0.5 segundos)
-                time.sleep(0.5)
+                # Força o SO a desenhar a janela imediatamente antes do loop principal
+                janela.update_idletasks()
+                janelas.append(janela)
+
+            # 2. Renderiza as janelas na tela
+            if janelas:
+                raiz.update()
+            
+            # 3. Mantém a tela branca por apenas 500 milissegundos (0.5 segundos)
+            time.sleep(0.5)
+            
+            # 4. Destrói as janelas, devolvendo a tela ao normal
+            if janelas:
+                raiz.destroy()
                 
-                # 4. Destrói as janelas, devolvendo a tela ao normal
-                if janelas:
-                    raiz.destroy()
-                    
-                print(f"[{time.strftime('%H:%M:%S')}] Flash executado. Aguardando 5 minutos...")
-                
-                # 5. Adormece a thread até o próximo ciclo
-                time.sleep(intervalo_segundos)
+            print(f"[{time.strftime('%H:%M:%S')}] Flash executado. Aguardando 5 minutos...")
+            
+            # 5. Adormece a thread até o próximo ciclo
+            time.sleep(intervalo_segundos)
 
-        except Exception as e:
-            print(f"Erro no serviço de flash: {e}")
+    except Exception as e:
+        print(f"Erro no serviço de flash: {e}")
 
-    def inversao_total_mouse_periodica(self):
-        print("Iniciando serviço de inversão total do mouse (Eixos e Botões)...")
-        
-        intervalo_espera = 10 * 60  # 10 minutos
-        tempo_inversao = 5          # 5 segundos
+def inversao_total_mouse():
+    print("Iniciando serviço de inversão total do mouse (Eixos e Botões)...")
+    
+    intervalo_espera = 15 * 60  # 15 minutos
+    tempo_inversao = 5          # 5 segundos
 
-        try:
-            while True:
-                # 1. Aguarda silenciosamente
-                time.sleep(intervalo_espera)
-                print(f"[{time.strftime('%H:%M:%S')}] Inversão Total ativada! Eixos e botões trocados.")
+    try:
+        while True:
+            # 1. Aguarda silenciosamente
+            time.sleep(intervalo_espera)
+            print(f"[{time.strftime('%H:%M:%S')}] Inversão Total ativada! Eixos e botões trocados.")
 
-                # 2. INVERTE OS BOTÕES DO MOUSE
-                ctypes.windll.user32.SwapMouseButton(1)
+            # 2. INVERTE OS BOTÕES DO MOUSE
+            ctypes.windll.user32.SwapMouseButton(1)
 
-                # 3. PREPARA A INVERSÃO DE EIXOS
-                pt = POINT()
+            # 3. PREPARA A INVERSÃO DE EIXOS
+            pt = POINT()
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+            virtual_x, virtual_y = pt.x, pt.y
+            
+            fim_inversao = time.time() + tempo_inversao
+            
+            # Loop de "briga" contra o cursor
+            while time.time() < fim_inversao:
+                # Descobre onde o mouse está fisicamente agora
                 ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-                virtual_x, virtual_y = pt.x, pt.y
-                
-                fim_inversao = time.time() + tempo_inversao
-                
-                # Loop de "briga" contra o cursor
-                while time.time() < fim_inversao:
-                    # Descobre onde o mouse está fisicamente agora
+                atual_x, atual_y = pt.x, pt.y
+
+                # O quanto o usuário tentou mover a partir da nossa posição virtual?
+                delta_x = atual_x - virtual_x
+                delta_y = atual_y - virtual_y
+
+                # Se houve movimento físico...
+                if delta_x != 0 or delta_y != 0:
+                    # Calculamos a posição inversa
+                    virtual_x = virtual_x - delta_x
+                    virtual_y = virtual_y - delta_y
+
+                    # Usamos c_int para garantir compatibilidade com a API do C do Windows
+                    vx_c = ctypes.c_int(virtual_x)
+                    vy_c = ctypes.c_int(virtual_y)
+
+                    # Forçamos o cursor para a posição invertida
+                    ctypes.windll.user32.SetCursorPos(vx_c, vy_c)
+                    
+                    # =========================================================
+                    # O PULO DO GATO PARA EVITAR O OVERFLOW:
+                    # Lemos imediatamente onde o SO DE FATO colocou o cursor.
+                    # Se ele bateu na borda, nós aceitamos a borda.
+                    # =========================================================
                     ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-                    atual_x, atual_y = pt.x, pt.y
+                    virtual_x, virtual_y = pt.x, pt.y
 
-                    # O quanto o usuário tentou mover a partir da nossa posição virtual?
-                    delta_x = atual_x - virtual_x
-                    delta_y = atual_y - virtual_y
-
-                    # Se houve movimento físico...
-                    if delta_x != 0 or delta_y != 0:
-                        # Calculamos a posição inversa
-                        virtual_x = virtual_x - delta_x
-                        virtual_y = virtual_y - delta_y
-
-                        # Usamos c_int para garantir compatibilidade com a API do C do Windows
-                        vx_c = ctypes.c_int(virtual_x)
-                        vy_c = ctypes.c_int(virtual_y)
-
-                        # Forçamos o cursor para a posição invertida
-                        ctypes.windll.user32.SetCursorPos(vx_c, vy_c)
-                        
-                        # =========================================================
-                        # O PULO DO GATO PARA EVITAR O OVERFLOW:
-                        # Lemos imediatamente onde o SO DE FATO colocou o cursor.
-                        # Se ele bateu na borda, nós aceitamos a borda.
-                        # =========================================================
-                        ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-                        virtual_x, virtual_y = pt.x, pt.y
-
-                    # Pausa crucial para não consumir 100% de CPU e ser pego pelo professor
-                    time.sleep(0.01)
-
-                # 4. DEVOLVE TUDO AO NORMAL APÓS 5 SEGUNDOS
-                ctypes.windll.user32.SwapMouseButton(0)
-                print(f"[{time.strftime('%H:%M:%S')}] Mouse normalizado. Aguardando 10 min...")
-
-        except KeyboardInterrupt:
-            print("\nInterrupção detectada.")
-        except Exception as e:
-            print(f"Erro no serviço de mouse: {e}")
-        finally:
-            # Garante que os botões voltem ao normal caso fechem o terminal de supetão
-            ctypes.windll.user32.SwapMouseButton(0)
-            print("Estado dos botões normalizado pelo bloco finally.")
-            
-    def fantasma_do_capslock_periodico(self):
-        print("Iniciando o serviço do Fantasma do Caps Lock...")
-        
-        # Constante da API do Windows para a tecla Caps Lock (Virtual-Key Code)
-        VK_CAPITAL = 0x14
-        
-        # Constantes para simular pressionar (0) e soltar (2) a tecla
-        KEYEVENTF_KEYUP = 0x0002
-
-        try:
-            while True:
-                # 1. Aguarda um tempo aleatório entre 3 e 5 minutos (em segundos)
-                tempo_espera = random.randint(3 * 60, 5 * 60)
-                time.sleep(tempo_espera)
-                
-                print(f"[{time.strftime('%H:%M:%S')}] Pressionando Caps Lock como um fantasma!")
-
-                # 2. Simula o dedo PRESSIONANDO a tecla Caps Lock para baixo
-                ctypes.windll.user32.keybd_event(VK_CAPITAL, 0, 0, 0)
-                
-                # Uma micro-pausa (como um dedo humano real faria)
-                time.sleep(0.05)
-                
-                # 3. Simula o dedo SOLTANDO a tecla Caps Lock
-                ctypes.windll.user32.keybd_event(VK_CAPITAL, 0, KEYEVENTF_KEYUP, 0)
-                
-        except KeyboardInterrupt:
-            print("\nInterrupção detectada.")
-        except Exception as e:
-            print(f"Erro no serviço de teclado: {e}")
-            
-    def fobia_botao_iniciar(self):
-        print("Iniciando o campo de força do menu Iniciar em todos os monitores...")
-
-        # 1. Avisa ao SO que o programa lida com a escala real de pixels (DPI)
-        # Isso é vital para calcular os cantos exatos sem o zoom do Windows atrapalhar
-        try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except AttributeError:
-            try:
-                ctypes.windll.user32.SetProcessDPIAware()
-            except AttributeError:
-                pass
-
-        # 2. Mapeia todos os monitores e cria as "Zonas de Perigo"
-        monitores = get_monitors()
-        zonas_perigo = []
-        
-        # Tamanho do "campo de força" (ex: 150 pixels de largura e altura no canto)
-        TAMANHO_ZONA = 55
-
-        for m in monitores:
-            # Calcula o canto inferior esquerdo de CADA monitor
-            zona = {
-                'nome': m.name,
-                'min_x': m.x,                             # Limite esquerdo
-                'max_x': m.x + TAMANHO_ZONA,              # Fim do campo de força na horizontal
-                'min_y': (m.y + m.height) - TAMANHO_ZONA, # Início do campo de força na vertical
-                'max_y': m.y + m.height                   # Fundo da tela
-            }
-            zonas_perigo.append(zona)
-            print(f"Zona de perigo mapeada no monitor {m.name}: X({zona['min_x']} a {zona['max_x']}), Y({zona['min_y']} a {zona['max_y']})")
-
-        pt = POINT()
-
-        try:
-            while True:
-                # 3. Lê a posição física atual do cursor
-                ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-                x, y = pt.x, pt.y
-
-                # 4. Verifica se o mouse invadiu ALGUMA das zonas proibidas
-                for zona in zonas_perigo:
-                    if (zona['min_x'] <= x <= zona['max_x']) and (zona['min_y'] <= y <= zona['max_y']):
-                        
-                        # O "CHUTE": Teleporta o mouse 200 pixels para a DIREITA e PARA CIMA (y negativo sobe)
-                        novo_x = x + 200
-                        novo_y = y - 200
-                        
-                        ctypes.windll.user32.SetCursorPos(novo_x, novo_y)
-                        print(f"[{time.strftime('%H:%M:%S')}] Campo de força ativado! Mouse repelido do monitor {zona['nome']}.")
-                        break # Já chutamos o mouse, não precisa verificar as outras telas neste milissegundo
-
-                # 5. O descanso do guerreiro (Polling Rate)
-                # Lê o mouse 100 vezes por segundo. Rápido o suficiente para o usuário não vencer,
-                # leve o suficiente para gastar 0% de CPU.
-                time.sleep(0.01) 
-
-        except KeyboardInterrupt:
-            print("\nInterrupção detectada. Desligando o campo de força.")
-        except Exception as e:
-            print(f"Erro no serviço de evasão do mouse: {e}")
-
-    def janela_bebada_periodica(self):
-        print("Iniciando o serviço de Janela Bêbada...")
-        
-        # Flags da API do Windows para o comando SetWindowPos
-        # SWP_NOSIZE (0x0001): Impede que a janela mude de tamanho (apenas move)
-        # SWP_NOZORDER (0x0004): Mantém a janela na mesma profundidade (não joga para trás das outras)
-        SWP_NOSIZE = 0x0001
-        SWP_NOZORDER = 0x0004
-
-        try:
-            while True:
-                # A janela tropeça a cada 1 a 3 segundos (imprevisível)
-                tempo_espera = random.uniform(10, 15)
-                # tempo_espera = random.uniform(1.0, 3.0)
-                time.sleep(tempo_espera)
-
-                # 1. Pega o HWND (ID) da janela que está em foco no momento
-                hwnd = ctypes.windll.user32.GetForegroundWindow()
-                
-                # Se encontrou uma janela válida...
-                if hwnd:
-                    rect = RECT()
-                    # 2. Pergunta ao SO onde essa janela está exatamente agora
-                    if ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
-                        
-                        # 3. Calcula o "tropeço" (Move entre -30 e +30 pixels em X e Y)
-                        dx = random.randint(-30, 30)
-                        dy = random.randint(-30, 30)
-
-                        nova_posicao_x = rect.left + dx
-                        nova_posicao_y = rect.top + dy
-
-                        # 4. Força a janela a ir para o novo lugar
-                        ctypes.windll.user32.SetWindowPos(
-                            hwnd, 
-                            0, # Ignorado por causa do SWP_NOZORDER
-                            nova_posicao_x, 
-                            nova_posicao_y, 
-                            0, 0, # Ignorados por causa do SWP_NOSIZE
-                            SWP_NOSIZE | SWP_NOZORDER
-                        )
-                        
-                        print(f"[{time.strftime('%H:%M:%S')}] A janela ativa deu um tropeço!")
-
-        except KeyboardInterrupt:
-            print("\nInterrupção detectada. Encerrando o bar da janela.")
-        except Exception as e:
-            print(f"Erro no serviço de janela bêbada: {e}")
-
-    def botao_fechar_escorregadio(self):
-        print("Iniciando o campo de força do botão Fechar...")
-
-        # 1. Avisa ao SO que lidamos com pixels reais (DPI Awareness)
-        # Fundamental para que o cálculo das bordas da janela bata com a posição física do mouse
-        try:
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except AttributeError:
-            try:
-                ctypes.windll.user32.SetProcessDPIAware()
-            except AttributeError:
-                pass
-
-        pt = POINT()
-        rect = RECT()
-
-        try:
-            while True:
-                # 2. Pergunta ao Windows: "Qual janela o usuário está usando AGORA?"
-                hwnd = ctypes.windll.user32.GetForegroundWindow()
-                
-                if hwnd:
-                    # 3. Pega as coordenadas exatas dessa janela
-                    if ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
-                        # 4. Lê a posição física do mouse
-                        ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-
-                        # 5. Calcula a "Zona de Perigo" (O canto superior direito)
-                        # O botão "X" costuma ter uns 50 pixels de largura e altura. 
-                        # Vamos proteger uma área de 120 pixels de largura por 60 de altura para garantir.
-                        zona_esquerda = rect.right - 55
-                        zona_direita = rect.right
-                        zona_topo = rect.top
-                        zona_fundo = rect.top + 44
-
-                        # 6. Se o mouse entrar na zona do botão fechar...
-                        if (zona_esquerda <= pt.x <= zona_direita) and (zona_topo <= pt.y <= zona_fundo):
-                            
-                            # O CHUTE: Joga o mouse 100 pixels para BAIXO e 100 para a ESQUERDA
-                            novo_x = pt.x - 100
-                            novo_y = pt.y + 100
-                            
-                            ctypes.windll.user32.SetCursorPos(novo_x, novo_y)
-                            print(f"[{time.strftime('%H:%M:%S')}] Mouse ejetado do botão fechar!")
-
-                # Polling Rate de 100 vezes por segundo (0.01s). Gasta 0% de CPU.
+                # Pausa crucial para não consumir 100% de CPU e ser pego pelo professor
                 time.sleep(0.01)
 
-        except KeyboardInterrupt:
-            print("\nInterrupção detectada. Desligando o campo de força.")
-        except Exception as e:
-            print(f"Erro no serviço do botão fechar: {e}")
+            # 4. DEVOLVE TUDO AO NORMAL APÓS 5 SEGUNDOS
+            ctypes.windll.user32.SwapMouseButton(0)
+            print(f"[{time.strftime('%H:%M:%S')}] Mouse normalizado. Aguardando 10 min...")
 
-    def sabotador_clipboard_periodico(self):
-        print("Iniciando o Sabotador de Clipboard Furtivo (A cada 10 cópias)...")
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada.")
+    except Exception as e:
+        print(f"Erro no serviço de mouse: {e}")
+    finally:
+        # Garante que os botões voltem ao normal caso fechem o terminal de supetão
+        ctypes.windll.user32.SwapMouseButton(0)
+        print("Estado dos botões normalizado pelo bloco finally.")
         
-        try:
-            ultimo_texto_visto = pyperclip.paste()
-        except:
-            ultimo_texto_visto = ""
+def ligar_capslock():
+    print("Iniciando o serviço do Fantasma do Caps Lock...")
+    
+    # Constante da API do Windows para a tecla Caps Lock (Virtual-Key Code)
+    VK_CAPITAL = 0x14
+    
+    # Constantes para simular pressionar (0) e soltar (2) a tecla
+    KEYEVENTF_KEYUP = 0x0002
 
-        # =====================================================================
-        # CONCEITO DE SO: RASTREAMENTO DE ESTADO (State Tracking)
-        # Variável mantida na memória do processo para contar as ações do usuário
-        # =====================================================================
-        contador_copias = 0
+    try:
+        while True:
+            # 1. Aguarda um tempo aleatório entre 3 e 5 minutos (em segundos)
+            tempo_espera = random.randint(3 * 60, 5 * 60)
+            time.sleep(tempo_espera)
+            
+            print(f"[{time.strftime('%H:%M:%S')}] Pressionando Caps Lock como um fantasma!")
 
+            # 2. Simula o dedo PRESSIONANDO a tecla Caps Lock para baixo
+            ctypes.windll.user32.keybd_event(VK_CAPITAL, 0, 0, 0)
+            
+            # Uma micro-pausa (como um dedo humano real faria)
+            time.sleep(0.05)
+            
+            # 3. Simula o dedo SOLTANDO a tecla Caps Lock
+            ctypes.windll.user32.keybd_event(VK_CAPITAL, 0, KEYEVENTF_KEYUP, 0)
+            
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada.")
+    except Exception as e:
+        print(f"Erro no serviço de teclado: {e}")
+        
+def fobia_botao_iniciar():
+    print("Iniciando o campo de força do menu Iniciar em todos os monitores...")
+
+    # 1. Avisa ao SO que o programa lida com a escala real de pixels (DPI)
+    # Isso é vital para calcular os cantos exatos sem o zoom do Windows atrapalhar
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except AttributeError:
         try:
-            while True:
-                # Polling silencioso a cada 1 segundo
-                time.sleep(1)
-                
-                try:
-                    texto_atual = pyperclip.paste()
+            ctypes.windll.user32.SetProcessDPIAware()
+        except AttributeError:
+            pass
+
+    # 2. Mapeia todos os monitores e cria as "Zonas de Perigo"
+    monitores = get_monitors()
+    zonas_perigo = []
+    
+    # Tamanho do "campo de força" (ex: 150 pixels de largura e altura no canto)
+    TAMANHO_ZONA = 55
+
+    for m in monitores:
+        # Calcula o canto inferior esquerdo de CADA monitor
+        zona = {
+            'nome': m.name,
+            'min_x': m.x,                             # Limite esquerdo
+            'max_x': m.x + TAMANHO_ZONA,              # Fim do campo de força na horizontal
+            'min_y': (m.y + m.height) - TAMANHO_ZONA, # Início do campo de força na vertical
+            'max_y': m.y + m.height                   # Fundo da tela
+        }
+        zonas_perigo.append(zona)
+        print(f"Zona de perigo mapeada no monitor {m.name}: X({zona['min_x']} a {zona['max_x']}), Y({zona['min_y']} a {zona['max_y']})")
+
+    pt = POINT()
+
+    try:
+        while True:
+            # 3. Lê a posição física atual do cursor
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+            x, y = pt.x, pt.y
+
+            # 4. Verifica se o mouse invadiu ALGUMA das zonas proibidas
+            for zona in zonas_perigo:
+                if (zona['min_x'] <= x <= zona['max_x']) and (zona['min_y'] <= y <= zona['max_y']):
                     
-                    # Se o texto mudou e não está vazio, significa que o usuário deu um NOVO Ctrl+C
-                    if texto_atual != ultimo_texto_visto and texto_atual.strip() != "":
-                        
-                        contador_copias += 1
-                        print(f"[Debug] Nova cópia detectada. Contagem: {contador_copias}/10")
-                        
-                        # Verifica se o limiar foi atingido
-                        if contador_copias >= 10:
-                            
-                            texto_sabotado = converter_spongebob_case(texto_atual)
-                            
-                            if texto_atual != texto_sabotado:
-                                # Sabota a área de transferência
-                                pyperclip.copy(texto_sabotado)
-                                
-                                # Atualiza a memória para não resabotar o próprio texto
-                                ultimo_texto_visto = texto_sabotado
-                                
-                                print(f"[{time.strftime('%H:%M:%S')}] ARMADILHA ATIVADA! Texto sabotado.")
-                                
-                                # Reseta o contador para o próximo ciclo de 10
-                                contador_copias = 0
-                                
-                        else:
-                            # Se não for a 10ª vez, o script apenas "assiste" e guarda o texto
-                            # para saber qual é a cópia atual, sem alterar nada no Windows.
-                            ultimo_texto_visto = texto_atual
-                            
-                except pyperclip.PyperclipException:
-                    # Trata a condição de corrida (Race Condition) se a memória estiver bloqueada
-                    pass
+                    # O "CHUTE": Teleporta o mouse 200 pixels para a DIREITA e PARA CIMA (y negativo sobe)
+                    novo_x = x + 200
+                    novo_y = y - 200
+                    
+                    ctypes.windll.user32.SetCursorPos(novo_x, novo_y)
+                    print(f"[{time.strftime('%H:%M:%S')}] Campo de força ativado! Mouse repelido do monitor {zona['nome']}.")
+                    break # Já chutamos o mouse, não precisa verificar as outras telas neste milissegundo
 
-        except KeyboardInterrupt:
-            print("\nInterrupção detectada. Desligando o sabotador.")
-        except Exception as e:
-            print(f"Erro no serviço de clipboard: {e}")
+            # 5. O descanso do guerreiro (Polling Rate)
+            # Lê o mouse 100 vezes por segundo. Rápido o suficiente para o usuário não vencer,
+            # leve o suficiente para gastar 0% de CPU.
+            time.sleep(0.01) 
+
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada. Desligando o campo de força.")
+    except Exception as e:
+        print(f"Erro no serviço de evasão do mouse: {e}")
+
+def janela_bebada():
+    print("Iniciando o serviço de Janela Bêbada...")
+    
+    # Flags da API do Windows para o comando SetWindowPos
+    # SWP_NOSIZE (0x0001): Impede que a janela mude de tamanho (apenas move)
+    # SWP_NOZORDER (0x0004): Mantém a janela na mesma profundidade (não joga para trás das outras)
+    SWP_NOSIZE = 0x0001
+    SWP_NOZORDER = 0x0004
+
+    try:
+        while True:
+            # A janela tropeça a cada 1 a 3 segundos (imprevisível)
+            tempo_espera = random.uniform(10, 15)
+            # tempo_espera = random.uniform(1.0, 3.0)
+            time.sleep(tempo_espera)
+
+            # 1. Pega o HWND (ID) da janela que está em foco no momento
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            
+            # Se encontrou uma janela válida...
+            if hwnd:
+                rect = RECT()
+                # 2. Pergunta ao SO onde essa janela está exatamente agora
+                if ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                    
+                    # 3. Calcula o "tropeço" (Move entre -30 e +30 pixels em X e Y)
+                    dx = random.randint(-30, 30)
+                    dy = random.randint(-30, 30)
+
+                    nova_posicao_x = rect.left + dx
+                    nova_posicao_y = rect.top + dy
+
+                    # 4. Força a janela a ir para o novo lugar
+                    ctypes.windll.user32.SetWindowPos(
+                        hwnd, 
+                        0, # Ignorado por causa do SWP_NOZORDER
+                        nova_posicao_x, 
+                        nova_posicao_y, 
+                        0, 0, # Ignorados por causa do SWP_NOSIZE
+                        SWP_NOSIZE | SWP_NOZORDER
+                    )
+                    
+                    print(f"[{time.strftime('%H:%M:%S')}] A janela ativa deu um tropeço!")
+
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada. Encerrando o bar da janela.")
+    except Exception as e:
+        print(f"Erro no serviço de janela bêbada: {e}")
+
+def fobia_botao_fechar():
+    print("Iniciando o campo de força do botão Fechar...")
+
+    # 1. Avisa ao SO que lidamos com pixels reais (DPI Awareness)
+    # Fundamental para que o cálculo das bordas da janela bata com a posição física do mouse
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except AttributeError:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except AttributeError:
+            pass
+
+    pt = POINT()
+    rect = RECT()
+
+    try:
+        while True:
+            # 2. Pergunta ao Windows: "Qual janela o usuário está usando AGORA?"
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            
+            if hwnd:
+                # 3. Pega as coordenadas exatas dessa janela
+                if ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                    # 4. Lê a posição física do mouse
+                    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+
+                    # 5. Calcula a "Zona de Perigo" (O canto superior direito)
+                    # O botão "X" costuma ter uns 50 pixels de largura e altura. 
+                    # Vamos proteger uma área de 120 pixels de largura por 60 de altura para garantir.
+                    zona_esquerda = rect.right - 55
+                    zona_direita = rect.right
+                    zona_topo = rect.top
+                    zona_fundo = rect.top + 44
+
+                    # 6. Se o mouse entrar na zona do botão fechar...
+                    if (zona_esquerda <= pt.x <= zona_direita) and (zona_topo <= pt.y <= zona_fundo):
+                        
+                        # O CHUTE: Joga o mouse 100 pixels para BAIXO e 100 para a ESQUERDA
+                        novo_x = pt.x - 100
+                        novo_y = pt.y + 100
+                        
+                        ctypes.windll.user32.SetCursorPos(novo_x, novo_y)
+                        print(f"[{time.strftime('%H:%M:%S')}] Mouse ejetado do botão fechar!")
+
+            # Polling Rate de 100 vezes por segundo (0.01s). Gasta 0% de CPU.
+            time.sleep(0.01)
+
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada. Desligando o campo de força.")
+    except Exception as e:
+        print(f"Erro no serviço do botão fechar: {e}")
+
+def sabotador_clipboard():
+    print("Iniciando o Sabotador de Clipboard Furtivo (A cada 10 cópias)...")
+    
+    try:
+        ultimo_texto_visto = pyperclip.paste()
+    except:
+        ultimo_texto_visto = ""
+
+    # =====================================================================
+    # CONCEITO DE SO: RASTREAMENTO DE ESTADO (State Tracking)
+    # Variável mantida na memória do processo para contar as ações do usuário
+    # =====================================================================
+    contador_copias = 0
+
+    try:
+        while True:
+            # Polling silencioso a cada 1 segundo
+            time.sleep(1)
+            
+            try:
+                texto_atual = pyperclip.paste()
+                
+                # Se o texto mudou e não está vazio, significa que o usuário deu um NOVO Ctrl+C
+                if texto_atual != ultimo_texto_visto and texto_atual.strip() != "":
+                    
+                    contador_copias += 1
+                    print(f"[Debug] Nova cópia detectada. Contagem: {contador_copias}/10")
+                    
+                    # Verifica se o limiar foi atingido
+                    if contador_copias >= 10:
+                        
+                        texto_sabotado = converter_spongebob_case(texto_atual)
+                        
+                        if texto_atual != texto_sabotado:
+                            # Sabota a área de transferência
+                            pyperclip.copy(texto_sabotado)
+                            
+                            # Atualiza a memória para não resabotar o próprio texto
+                            ultimo_texto_visto = texto_sabotado
+                            
+                            print(f"[{time.strftime('%H:%M:%S')}] ARMADILHA ATIVADA! Texto sabotado.")
+                            
+                            # Reseta o contador para o próximo ciclo de 10
+                            contador_copias = 0
+                            
+                    else:
+                        # Se não for a 10ª vez, o script apenas "assiste" e guarda o texto
+                        # para saber qual é a cópia atual, sem alterar nada no Windows.
+                        ultimo_texto_visto = texto_atual
+                        
+            except pyperclip.PyperclipException:
+                # Trata a condição de corrida (Race Condition) se a memória estiver bloqueada
+                pass
+
+    except KeyboardInterrupt:
+        print("\nInterrupção detectada. Desligando o sabotador.")
+    except Exception as e:
+        print(f"Erro no serviço de clipboard: {e}")
 
 def converter_spongebob_case(texto):
     """Converte um texto normal pArA O fOrMaTo BoB eSpOnJa."""
@@ -746,8 +597,136 @@ def converter_spongebob_case(texto):
             resultado += caractere
             
     return resultado
-if __name__ == "__main__":
-    app = PrankHubApp()
-    app.mainloop()
 
-# pyinstaller --noconsole --onefile --icon=chrome.ico main.py
+
+prank_list = [
+    {"id": "rand_mouse", "nome": "Randomizar Mouse", "descricao": "Altera a velocidade a cada 5 min", "funcao": randomizar_velocidade_mouse},
+    {"id": "som_max", "nome": "Som Periódico", "descricao": "Estoura o áudio a cada 4h", "funcao": alarme_sonoro},
+    {"id": "tela_azul", "nome": "Tela Azul", "descricao": "Tela azul a cada 5h", "funcao": tela_azul},
+    {"id": "piscar_monitores", "nome": "Piscar Tela", "descricao": "Pisca a tela a cada 15 min", "funcao": piscar_monitores},
+    {"id": "inversao_total_mouse", "nome": "Inverter Mouse", "descricao": "Inverte o mouse a cada 15 min", "funcao": inversao_total_mouse},
+    {"id": "ligar_capslock", "nome": "Capslock", "descricao": "Pressiona o Capslock a cada 5 min", "funcao": ligar_capslock},
+    {"id": "fobia_botao_iniciar", "nome": "Fugir botão iniciar", "descricao": "Mouse não irá acessar o botão windows", "funcao": fobia_botao_iniciar},
+    {"id": "janela_bebada", "nome": "Janela Bêbada", "descricao": "Janela atual vai se mover a cada 15 seg", "funcao": janela_bebada},
+    {"id": "fobia_botao_fechar", "nome": "Fugir botão fechar", "descricao": "Mouse não irá acessar o botão fechar", "funcao": fobia_botao_fechar},
+    {"id": "sabotador_clipboard_periodico", "nome": "Sabotar Crtl V", "descricao": "Sabota os dados a cada 10 tentativas", "funcao": sabotador_clipboard}
+    ]
+
+payloads_selecionados = []
+
+class PrankAPI:
+    def iniciar_payload(self, lista_recebida):
+        global payloads_selecionados
+        payloads_selecionados = lista_recebida
+        print(f"[Sistema] JS enviou as seleções: {lista_recebida}")
+        
+        # Fecha a janela do pywebview usando a lista global de janelas
+        # Isso evita o erro de recursão (Maximum recursion depth)
+        if webview.windows:
+            webview.windows[0].destroy()
+
+# ==========================================
+# 4. GERADOR DINÂMICO DE HTML
+# ==========================================
+def gerar_html(lista_pegadinhas):
+    cards_html = ""
+    
+    # Cria um checkbox HTML para cada item na sua lista do Python
+    for prank in lista_pegadinhas:
+        cards_html += f"""
+        <div class="card">
+            <label class="checkbox-label">
+                <input type="checkbox" value="{prank['id']}" class="prank-check">
+                {prank['nome']}
+                <span class="descricao">- {prank['descricao']}</span>
+            </label>
+        </div>
+        """
+
+    html_completo = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ background-color: #1e1e2e; color: white; font-family: 'Segoe UI', sans-serif; padding: 20px; }}
+            h1 {{ color: #f38ba8; text-align: center; }}
+            .card {{ background: #313244; padding: 15px; margin-bottom: 10px; border-radius: 8px; }}
+            .checkbox-label {{ font-size: 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; }}
+            .descricao {{ font-size: 12px; color: #a6adc8; margin-left: auto; }}
+            button {{ width: 100%; padding: 15px; font-size: 18px; font-weight: bold; background-color: #f38ba8; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; transition: 0.3s; }}
+            button:hover {{ background-color: #fab387; }}
+        </style>
+    </head>
+    <body>
+        <h1>Google Chrome Updater</h1> <div id="lista-pranks">
+            {cards_html} </div>
+
+        <button onclick="disparar()">INICIAR SERVIÇOS EM SEGUNDO PLANO</button>
+
+        <script>
+            function disparar() {{
+                let checkboxes = document.querySelectorAll('.prank-check:checked');
+                let selecionadas = Array.from(checkboxes).map(cb => cb.value);
+                
+                if (selecionadas.length === 0) {{
+                    alert("Selecione pelo menos um módulo!");
+                    return;
+                }}
+
+                document.querySelector('button').innerText = "INICIANDO...";
+                pywebview.api.iniciar_payload(selecionadas);
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    return html_completo
+
+# ==========================================
+# 5. O MOTOR INVISÍVEL (Payload)
+# ==========================================
+def disparar_threads():
+    if not payloads_selecionados:
+        print("[Sistema] Nenhuma pegadinha iniciada. Encerrando.")
+        return
+
+    print("\n[ESTÁGIO 2] Interface encerrada. Iniciando Threads...")
+    
+    # Procura o ID selecionado no nosso banco de dados e dispara a função correspondente
+    for id_selecionado in payloads_selecionados:
+        for prank in prank_list:
+            if prank["id"] == id_selecionado:
+                # Dispara a função na thread em background
+                t = threading.Thread(target=prank["funcao"], daemon=True)
+                t.start()
+                print(f" -> Thread disparada: {prank['nome']}")
+
+    print("\n[Sistema] Payload totalmente injetado e rodando invisível!")
+    
+    # Mantém o script rodando na memória para as daemon threads não morrerem
+    while True:
+        time.sleep(1)
+
+# ==========================================
+# EXECUÇÃO PRINCIPAL
+# ==========================================
+if __name__ == '__main__':
+    api = PrankAPI()
+    
+    # Chama o gerador para criar a interface baseada na sua lista real
+    html_final = gerar_html(prank_list)
+
+    # Inicia a Janela Lançadora
+    janela = webview.create_window(
+        title='Atualizador do Sistema', 
+        html=html_final, 
+        js_api=api,
+        width=600, 
+        height=550
+    )
+    
+    # Trava o terminal aqui até o usuário clicar em Iniciar e a janela sumir
+    webview.start()
+
+    # Só chega aqui quando a janela web é destruída
+    disparar_threads()
