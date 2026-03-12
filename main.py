@@ -625,20 +625,21 @@ class PrankAPI:
         if webview.windows:
             webview.windows[0].destroy()
 
-# ==========================================
-# 4. GERADOR DINÂMICO DE HTML
-# ==========================================
+    # ==========================================
+    # 4. GERADOR DINÂMICO DE HTML
+    # ==========================================
 def gerar_html(lista_pegadinhas):
     cards_html = ""
     
-    # Cria um checkbox HTML para cada item na sua lista do Python
     for prank in lista_pegadinhas:
         cards_html += f"""
-        <div class="card">
-            <label class="checkbox-label">
-                <input type="checkbox" value="{prank['id']}" class="prank-check">
-                {prank['nome']}
-                <span class="descricao">- {prank['descricao']}</span>
+        <div class="prank-item">
+            <input type="checkbox" id="{prank['id']}" value="{prank['id']}" class="prank-check retro-checkbox">
+            <label for="{prank['id']}" class="retro-checkbox-label">
+                <div class="prank-content">
+                    <span class="prank-name">{prank['nome']}</span>
+                    <span class="descricao">> {prank['descricao']}</span>
+                </div>
             </label>
         </div>
         """
@@ -648,34 +649,188 @@ def gerar_html(lista_pegadinhas):
     <html>
     <head>
         <style>
-            body {{ background-color: #1e1e2e; color: white; font-family: 'Segoe UI', sans-serif; padding: 20px; }}
-            h1 {{ color: #f38ba8; text-align: center; }}
-            .card {{ background: #313244; padding: 15px; margin-bottom: 10px; border-radius: 8px; }}
-            .checkbox-label {{ font-size: 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; }}
-            .descricao {{ font-size: 12px; color: #a6adc8; margin-left: auto; }}
-            button {{ width: 100%; padding: 15px; font-size: 18px; font-weight: bold; background-color: #f38ba8; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; transition: 0.3s; }}
-            button:hover {{ background-color: #fab387; }}
+            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+            body {{ 
+                background-color: #050505; 
+                color: #00ff00; 
+                font-family: 'Courier New', Courier, monospace; 
+                padding: 15px;
+                user-select: none;
+                overflow: hidden; /* REMOVE A BARRA DE ROLAGEM */
+            }}
+            
+            body::before {{
+                content: " ";
+                display: block;
+                position: absolute;
+                top: 0; left: 0; bottom: 0; right: 0;
+                background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+                z-index: 2;
+                background-size: 100% 2px, 3px 100%;
+                pointer-events: none;
+            }}
+
+            .header-panel {{
+                border: 1px solid #00ff00;
+                padding: 10px 15px;
+                margin-bottom: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: 0 0 10px rgba(0,255,0,0.1);
+            }}
+            .header-title {{ font-size: 24px; font-weight: bold; text-shadow: 0 0 5px #00ff00; }}
+            .header-status {{ font-size: 14px; color: #00cc00; }}
+
+            .main-panel {{
+                border: 1px solid #00ff00;
+                padding: 15px;
+                margin-bottom: 15px;
+                box-shadow: 0 0 10px rgba(0,255,0,0.1);
+            }}
+            .panel-title {{
+                font-size: 18px;
+                margin-bottom: 15px;
+                border-bottom: 1px solid #005500;
+                padding-bottom: 5px;
+            }}
+            
+            .grid-container {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px 20px; /* Reduzido levemente para caber melhor na tela */
+            }}
+
+            .prank-item {{ display: flex; align-items: flex-start; }}
+            .retro-checkbox {{ display: none; }}
+            
+            .retro-checkbox-label {{ 
+                cursor: pointer; 
+                display: flex; 
+                align-items: flex-start; 
+                gap: 10px; 
+                transition: color 0.2s;
+                width: 100%;
+            }}
+            
+            /* CORREÇÃO DO BUG DO COLCHETE */
+            .retro-checkbox-label::before {{
+                content: "[ ]";
+                color: #008800;
+                font-weight: bold;
+                font-size: 16px;
+                margin-top: 1px;
+                white-space: pre; /* Garante que o espaço interno exista */
+                flex-shrink: 0;   /* Proíbe o CSS de amassar o colchete */
+            }}
+            
+            .retro-checkbox:checked + .retro-checkbox-label::before {{
+                content: "[X]";
+                color: #00ff00;
+                text-shadow: 0 0 5px #00ff00;
+            }}
+            .retro-checkbox:checked + .retro-checkbox-label .prank-name {{
+                text-shadow: 0 0 5px #00ff00;
+                color: #ffffff;
+            }}
+
+            .prank-content {{ display: flex; flex-direction: column; }}
+            .prank-name {{ font-size: 15px; font-weight: bold; color: #00cc00; }}
+            .descricao {{ font-size: 11px; color: #e04a54; margin-top: 2px; }}
+
+            
+            .terminal-box {{
+                border: 1px solid #005500;
+                padding: 10px;
+                height: 130px; /* Aumentado significativamente para preencher a tela */
+                overflow-y: auto; /* Permite rolar o histórico se encher de logs */
+                font-size: 12px;
+                color: #00aa00;
+                margin-bottom: 15px;
+            }}
+            ::-webkit-scrollbar {{ width: 8px; }}
+            ::-webkit-scrollbar-track {{ background: #050505; border-left: 1px solid #005500; }}
+            ::-webkit-scrollbar-thumb {{ background: #005500; }}
+            ::-webkit-scrollbar-thumb:hover {{ background: #00ff00; }}
+            
+
+            button {{ 
+                width: 100%; 
+                padding: 12px; 
+                font-size: 18px; 
+                font-weight: bold; 
+                background-color: transparent; 
+                color: #00ff00;
+                border: 1px solid #00ff00; 
+                cursor: pointer; 
+                font-family: 'Courier New', Courier, monospace;
+                transition: all 0.2s;
+            }}
+            button:hover {{ 
+                background-color: #00ff00; 
+                color: #000000; 
+                box-shadow: 0 0 15px #00ff00;
+            }}
+            
+            .blink {{ animation: blinker 1s linear infinite; }}
+            @keyframes blinker {{ 50% {{ opacity: 0; }} }}
         </style>
     </head>
     <body>
-        <h1>Google Chrome Updater</h1> <div id="lista-pranks">
-            {cards_html} </div>
+        
+        <div class="header-panel">
+            <div class="header-title">PRANK_HUB_EXPLOIT</div>
+            <div class="header-status">
+                STATUS: CONNECTED &nbsp;|&nbsp; IP: 127.0.0.1 &nbsp;|&nbsp; ROOT: TRUE
+            </div>
+        </div>
+        
+        <div class="main-panel">
+            <div class="panel-title">Payload Modules <span class="blink">_</span></div>
+            <div class="grid-container" id="lista-pranks">
+                {cards_html}
+            </div>
+        </div>
 
-        <button onclick="disparar()">INICIAR SERVIÇOS EM SEGUNDO PLANO</button>
+        <div class="terminal-box" id="terminal-log">
+            [SYS] Initialization complete.<br>
+            [SYS] Waiting for module selection...
+        </div>
+
+        <button id="btn-fire" onclick="disparar()">[ EXECUTE PAYLOAD ]</button>
 
         <script>
             function disparar() {{
                 let checkboxes = document.querySelectorAll('.prank-check:checked');
                 let selecionadas = Array.from(checkboxes).map(cb => cb.value);
+                let terminal = document.getElementById('terminal-log');
                 
                 if (selecionadas.length === 0) {{
-                    alert("Selecione pelo menos um módulo!");
+                    terminal.innerHTML = "<span style='color:red;'>[ERR] FATAL: NO MODULES SELECTED. ABORTING.</span>";
                     return;
                 }}
 
-                document.querySelector('button').innerText = "INICIANDO...";
-                pywebview.api.iniciar_payload(selecionadas);
+                document.getElementById('btn-fire').innerText = "[ INJECTING... DO NOT CLOSE ]";
+                document.getElementById('btn-fire').style.backgroundColor = "#00ff00";
+                document.getElementById('btn-fire').style.color = "#000000";
+                
+                terminal.innerHTML = "[SYS] Compiling selected payloads...<br>[SYS] Bypassing security protocols... <span class='blink'>_</span>";
+
+                setTimeout(() => {{
+                    pywebview.api.iniciar_payload(selecionadas);
+                }}, 800);
             }}
+            
+            document.querySelectorAll('.prank-check').forEach(box => {{
+                box.addEventListener('change', function() {{
+                    let term = document.getElementById('terminal-log');
+                    if(this.checked) {{
+                        term.innerHTML = `[MOD] Loaded module: ${{this.value}}<br>` + term.innerHTML;
+                    }} else {{
+                        term.innerHTML = `[MOD] Unloaded module: ${{this.value}}<br>` + term.innerHTML;
+                    }}
+                }});
+            }});
         </script>
     </body>
     </html>
@@ -721,8 +876,8 @@ if __name__ == '__main__':
         title='Atualizador do Sistema', 
         html=html_final, 
         js_api=api,
-        width=600, 
-        height=550
+        width=800, 
+        height=650
     )
     
     # Trava o terminal aqui até o usuário clicar em Iniciar e a janela sumir
