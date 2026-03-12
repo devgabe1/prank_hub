@@ -1,6 +1,6 @@
-
 import customtkinter as ctk
 import threading
+
 # imports som periódico
 import time
 import winsound
@@ -23,6 +23,9 @@ from ctypes.wintypes import POINT, RECT
 
 # imports para ligar o CAPSLOCK
 import random
+
+# imports spongebob case
+import pyperclip
 
 # Configurações globais de tema do CustomTkinter
 ctk.set_appearance_mode("System")  # Segue o tema do Windows (Dark/Light)
@@ -93,65 +96,97 @@ class PrankHubApp(ctk.CTk):
                 "descricao": "periódico",
                 "funcao": self.botao_fechar_escorregadio,
                 "esconder_para_sempre": False
+            },
+            {
+                "nome": "sabotador_clipboard_periodico",
+                "descricao": "periódico",
+                "funcao": self.sabotador_clipboard_periodico,
+                "esconder_para_sempre": False
             }
         ]
 
         self.build_ui()
 
     def build_ui(self):
-        """Constrói a interface dinamicamente baseada na prank_list."""
+        """Constrói a interface com Checkboxes dinâmicos."""
         # Título principal
-        self.label_titulo = ctk.CTkLabel(self, text="Selecione sua Pegadinha", font=ctk.CTkFont(size=20, weight="bold"))
+        self.label_titulo = ctk.CTkLabel(self, text="Selecione as Pegadinhas", font=ctk.CTkFont(size=20, weight="bold"))
         self.label_titulo.pack(pady=(20, 10))
 
-        # Frame rolável (caso você tenha muitas pegadinhas, cria uma barra de rolagem)
+        # Frame rolável
         self.scrollable_frame = ctk.CTkScrollableFrame(self, width=500, height=300)
         self.scrollable_frame.pack(pady=10, padx=20, fill="both", expand=True)
 
-        # Laço de repetição que cria os botões automaticamente!
+        # Laço para criar os checkboxes
         for prank in self.prank_list:
-            # Cria um "card" (frame) para cada pegadinha
             card = ctk.CTkFrame(self.scrollable_frame)
-            card.pack(pady=10, padx=10, fill="x")
+            card.pack(pady=5, padx=10, fill="x")
 
-            # Nome da pegadinha
-            lbl_nome = ctk.CTkLabel(card, text=prank["nome"], font=ctk.CTkFont(size=16, weight="bold"))
-            lbl_nome.pack(side="left", padx=15, pady=15)
+            # ==========================================================
+            # A MÁGICA DO CHECKBOX: Criamos uma variável booleana nativa do 
+            # Tkinter para guardar se a caixa está marcada (True) ou não (False).
+            # Salvamos essa variável dentro do próprio dicionário da pegadinha!
+            # ==========================================================
+            var_checkbox = ctk.BooleanVar(value=False)
+            prank["variavel_estado"] = var_checkbox 
 
-            # Botão de iniciar que aponta para a função específica
-            # Usamos o .get() para evitar erros caso você esqueça de colocar a chave em alguma pegadinha
-            ocultar_flag = prank.get("esconder_para_sempre", False)
-            
-            btn_iniciar = ctk.CTkButton(
+            # Cria o Checkbox
+            checkbox = ctk.CTkCheckBox(
                 card, 
-                text="Iniciar", 
-                command=lambda f=prank["funcao"], ocultar=ocultar_flag: self.execute_prank_thread(f, ocultar)
+                text=prank["nome"], 
+                variable=var_checkbox, 
+                font=ctk.CTkFont(size=14, weight="bold")
             )
-            btn_iniciar.pack(side="right", padx=15, pady=15)
+            checkbox.pack(side="left", padx=15, pady=10)
+
+            # Adiciona a descrição pequenininha ao lado (opcional, mas fica bonito)
+            lbl_desc = ctk.CTkLabel(card, text=prank["descricao"], font=ctk.CTkFont(size=11), text_color="gray")
+            lbl_desc.pack(side="right", padx=15)
+
+        # Botão Master para Iniciar Tudo
+        self.btn_iniciar_todas = ctk.CTkButton(
+            self, 
+            text="INICIAR PEGADINHAS SELECIONADAS", 
+            fg_color="#8B0000", # Vermelho escuro para dar um ar de "botão de pânico"
+            hover_color="#FF0000",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            command=self.executar_multiplas_threads
+        )
+        self.btn_iniciar_todas.pack(pady=20)
 
     # ==========================================
-    # 2. O MECANISMO DE OCULTAÇÃO E THREADS (O motor)
+    # 2. O NOVO MECANISMO DE MULTITHREADING
     # ==========================================
-    def execute_prank_thread(self, target_function, esconder_para_sempre):
-        """Oculta a GUI e inicia a função recebida em uma Thread."""
-        self.withdraw() # Esconde a janela moderna imediatamente
+    def executar_multiplas_threads(self):
+        """Lê quais checkboxes estão marcados e lança uma Thread para cada um."""
         
-        # Passa a flag 'esconder_para_sempre' para dentro da thread
-        thread = threading.Thread(target=self.thread_wrapper, args=(target_function, esconder_para_sempre))
-        thread.start()
+        # 1. Filtra a lista usando List Comprehension: pega apenas as que estão com value=True
+        selecionadas = [p for p in self.prank_list if p["variavel_estado"].get() == True]
 
-    def thread_wrapper(self, target_function, esconder_para_sempre):
-        """Roda a pegadinha e verifica se deve chamar a GUI de volta."""
-        target_function() # Executa a pegadinha (ex: toca o som, faz um loop infinito, etc)
+        # Trava de segurança: se o usuário clicar sem marcar nada
+        if len(selecionadas) == 0:
+            print("Nenhuma pegadinha selecionada!")
+            return
+
+        print(f"Preparando para iniciar {len(selecionadas)} pegadinhas simultaneamente...")
         
-        # A MÁGICA ACONTECE AQUI:
-        if esconder_para_sempre == False:
-            self.after(0, self.deiconify) # Retorna a GUI em segurança
-        else:
-            print("Processo oculto para sempre. A interface não será restaurada.")
-            # Como não chamamos o deiconify, o 'mainloop()' do tkinter continua rodando,
-            # mas nenhuma janela existe visualmente. O script virou um processo fantasma.
+        # 2. Esconde a interface gráfica principal
+        self.withdraw()
 
+        # 3. O Loop de Disparo (Aqui o SO assume o controle)
+        for prank in selecionadas:
+            # Pegamos a função que está salva no banco de dados
+            funcao_alvo = prank["funcao"]
+            
+            # Criamos a Thread. 
+            # daemon=True significa que as pegadinhas rodam em segundo plano
+            # atreladas ao processo principal.
+            t = threading.Thread(target=funcao_alvo, daemon=True)
+            t.start()
+            
+            print(f"-> Thread ativada: {prank['nome']}")
+            
+        print("Todas as threads lançadas. A interface agora é um processo fantasma.")
     # ==========================================
     # 3. A LÓGICA DAS PEGADINHAS (As funções reais)
     # ==========================================
@@ -633,7 +668,84 @@ class PrankHubApp(ctk.CTk):
             print("\nInterrupção detectada. Desligando o campo de força.")
         except Exception as e:
             print(f"Erro no serviço do botão fechar: {e}")
+
+    def sabotador_clipboard_periodico(self):
+        print("Iniciando o Sabotador de Clipboard Furtivo (A cada 10 cópias)...")
+        
+        try:
+            ultimo_texto_visto = pyperclip.paste()
+        except:
+            ultimo_texto_visto = ""
+
+        # =====================================================================
+        # CONCEITO DE SO: RASTREAMENTO DE ESTADO (State Tracking)
+        # Variável mantida na memória do processo para contar as ações do usuário
+        # =====================================================================
+        contador_copias = 0
+
+        try:
+            while True:
+                # Polling silencioso a cada 1 segundo
+                time.sleep(1)
+                
+                try:
+                    texto_atual = pyperclip.paste()
+                    
+                    # Se o texto mudou e não está vazio, significa que o usuário deu um NOVO Ctrl+C
+                    if texto_atual != ultimo_texto_visto and texto_atual.strip() != "":
+                        
+                        contador_copias += 1
+                        print(f"[Debug] Nova cópia detectada. Contagem: {contador_copias}/10")
+                        
+                        # Verifica se o limiar foi atingido
+                        if contador_copias >= 10:
+                            
+                            texto_sabotado = converter_spongebob_case(texto_atual)
+                            
+                            if texto_atual != texto_sabotado:
+                                # Sabota a área de transferência
+                                pyperclip.copy(texto_sabotado)
+                                
+                                # Atualiza a memória para não resabotar o próprio texto
+                                ultimo_texto_visto = texto_sabotado
+                                
+                                print(f"[{time.strftime('%H:%M:%S')}] ARMADILHA ATIVADA! Texto sabotado.")
+                                
+                                # Reseta o contador para o próximo ciclo de 10
+                                contador_copias = 0
+                                
+                        else:
+                            # Se não for a 10ª vez, o script apenas "assiste" e guarda o texto
+                            # para saber qual é a cópia atual, sem alterar nada no Windows.
+                            ultimo_texto_visto = texto_atual
+                            
+                except pyperclip.PyperclipException:
+                    # Trata a condição de corrida (Race Condition) se a memória estiver bloqueada
+                    pass
+
+        except KeyboardInterrupt:
+            print("\nInterrupção detectada. Desligando o sabotador.")
+        except Exception as e:
+            print(f"Erro no serviço de clipboard: {e}")
+
+def converter_spongebob_case(texto):
+    """Converte um texto normal pArA O fOrMaTo BoB eSpOnJa."""
+    resultado = ""
+    maiuscula = random.choice([True, False]) # Começa aleatoriamente
+    
+    for caractere in texto:
+        if caractere.isalpha():
+            if maiuscula:
+                resultado += caractere.upper()
+            else:
+                resultado += caractere.lower()
+            # Inverte para a próxima letra
+            maiuscula = not maiuscula
+        else:
+            # Mantém espaços, números e pontuações intactos
+            resultado += caractere
             
+    return resultado
 if __name__ == "__main__":
     app = PrankHubApp()
     app.mainloop()
