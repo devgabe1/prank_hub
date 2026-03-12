@@ -1,4 +1,3 @@
-from ctypes.wintypes import POINT
 
 import customtkinter as ctk
 import threading
@@ -19,6 +18,11 @@ import random
 from screeninfo import get_monitors
 import tkinter as tk
 
+# imports para inverter o mouse
+from ctypes.wintypes import POINT
+
+# imports para ligar o CAPSLOCK
+import random
 
 # Configurações globais de tema do CustomTkinter
 ctk.set_appearance_mode("System")  # Segue o tema do Windows (Dark/Light)
@@ -64,6 +68,12 @@ class PrankHubApp(ctk.CTk):
                 "nome": "inverter_eixo_mouse_periodico",
                 "descricao": "periódico",
                 "funcao": self.inversao_total_mouse_periodica,
+                "esconder_para_sempre": False
+            },
+            {
+                "nome": "fantasma_do_capslock_periodico",
+                "descricao": "periódico",
+                "funcao": self.fantasma_do_capslock_periodico,
                 "esconder_para_sempre": False
             }
         ]
@@ -402,6 +412,37 @@ class PrankHubApp(ctk.CTk):
             # Garante que os botões voltem ao normal caso fechem o terminal de supetão
             ctypes.windll.user32.SwapMouseButton(0)
             print("Estado dos botões normalizado pelo bloco finally.")
+            
+    def fantasma_do_capslock_periodico(self):
+        print("Iniciando o serviço do Fantasma do Caps Lock...")
+        
+        # Constante da API do Windows para a tecla Caps Lock (Virtual-Key Code)
+        VK_CAPITAL = 0x14
+        
+        # Constantes para simular pressionar (0) e soltar (2) a tecla
+        KEYEVENTF_KEYUP = 0x0002
+
+        try:
+            while True:
+                # 1. Aguarda um tempo aleatório entre 3 e 5 minutos (em segundos)
+                tempo_espera = random.randint(3 * 60, 5 * 60)
+                time.sleep(tempo_espera)
+                
+                print(f"[{time.strftime('%H:%M:%S')}] Pressionando Caps Lock como um fantasma!")
+
+                # 2. Simula o dedo PRESSIONANDO a tecla Caps Lock para baixo
+                ctypes.windll.user32.keybd_event(VK_CAPITAL, 0, 0, 0)
+                
+                # Uma micro-pausa (como um dedo humano real faria)
+                time.sleep(0.05)
+                
+                # 3. Simula o dedo SOLTANDO a tecla Caps Lock
+                ctypes.windll.user32.keybd_event(VK_CAPITAL, 0, KEYEVENTF_KEYUP, 0)
+                
+        except KeyboardInterrupt:
+            print("\nInterrupção detectada.")
+        except Exception as e:
+            print(f"Erro no serviço de teclado: {e}")
             
 if __name__ == "__main__":
     app = PrankHubApp()
