@@ -1,6 +1,5 @@
 import customtkinter as ctk
 import threading
-
 # imports som periódico
 import time
 import winsound
@@ -13,6 +12,11 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 import ctypes
 import time
 import random
+
+# imports tela azul
+from screeninfo import get_monitors
+import tkinter as tk
+
 
 # Configurações globais de tema do CustomTkinter
 ctk.set_appearance_mode("System")  # Segue o tema do Windows (Dark/Light)
@@ -40,6 +44,12 @@ class PrankHubApp(ctk.CTk):
                 "nome": "Som periódico",
                 "descricao": "periódico",
                 "funcao": self.alarme_sonoro_periodico,
+                "esconder_para_sempre": False
+            },
+            {
+                "nome": "tela_azul_falsa",
+                "descricao": "periódico",
+                "funcao": self.tela_azul_falsa_multi_tela,
                 "esconder_para_sempre": False
             }
         ]
@@ -104,15 +114,6 @@ class PrankHubApp(ctk.CTk):
     # 3. A LÓGICA DAS PEGADINHAS (As funções reais)
     # ==========================================
 
-    def logic_fantasma(self):
-        import time
-        import winsound
-        # Um loop infinito rodando de forma invisível
-        while True:
-            # Toca um bipe irritante a cada 10 segundos para sempre
-            winsound.Beep(500, 200)
-            time.sleep(10)
-
     def randomizar_velocidade_mouse(self):
         """
         Altera a velocidade do mouse do Windows para um valor aleatório
@@ -135,7 +136,6 @@ class PrankHubApp(ctk.CTk):
             # Aguarda 300 segundos
             time.sleep(300)
                 
-
     def alarme_sonoro_periodico(self):
         print("Iniciando o serviço de áudio...")
         
@@ -178,6 +178,88 @@ class PrankHubApp(ctk.CTk):
         finally:
             # 5. Sempre desinicializa o COM ao encerrar a thread
             comtypes.CoUninitialize()
+
+    def tela_azul_falsa_multi_tela(self):
+        print("Iniciando a BSOD falsa em todos os monitores...")
+
+        # Avisa ao SO que o programa lida com a escala real (DPI)
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except AttributeError:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except AttributeError:
+                pass
+
+        janelas = []
+        monitores = get_monitors()
+        
+        # 1. CRIAMOS A FUNÇÃO DO COMANDO SECRETO
+        def comando_secreto(event):
+            print("Comando secreto ativado! Encerrando a tela azul...")
+            raiz.destroy() # Destrói a janela principal, fechando todas as outras
+
+        for indice, monitor in enumerate(monitores):
+            if indice == 0:
+                janela = tk.Tk()
+                raiz = janela
+            else:
+                janela = tk.Toplevel(raiz)
+            
+            janela.overrideredirect(True)
+            janela.geometry(f"{monitor.width}x{monitor.height}+{monitor.x}+{monitor.y}")
+            janela.configure(bg="#0000AA")
+            janela.config(cursor="none")
+            
+            if monitor.is_primary:
+                texto_bsod = """
+                A problem has been detected and Windows has been shut down to prevent damage
+                to your computer.
+
+                DRIVER_IRQL_NOT_LESS_OR_EQUAL
+
+                If this is the first time you've seen this stop error screen,
+                restart your computer. If this screen appears again, follow
+                these steps:
+
+                Check to make sure any new hardware or software is properly installed.
+                If this is a new installation, ask your hardware or software manufacturer
+                for any Windows updates you might need.
+
+                If problems continue, disable or remove any newly installed hardware
+                or software. Disable BIOS memory options such as caching or shadowing.
+                If you need to use Safe Mode to remove or disable components, restart
+                your computer, press F8 to select Advanced Startup Options, and then
+                select Safe Mode.
+
+                Technical information:
+
+                *** STOP: 0x000000D1 (0x0000000000000014, 0x0000000000000002, 0x0000000000000000, 0xFFFFF88001234567)
+
+                *** tcpip.sys - Address FFFFF88001234567 base at FFFFF88001200000, DateStamp 4a5bc3fe
+                """
+                
+                label = tk.Label(janela, text=texto_bsod, bg="#0000AA", fg="white", 
+                                font=("Courier New", 14), justify="left")
+                label.pack(anchor="nw", padx=50, pady=50)
+
+            janela.attributes("-topmost", True)
+            
+            # =====================================================================
+            # 2. SUBSTITUÍMOS O BIND DO ESCAPE PELO COMANDO SECRETO
+            # <Control-J> significa Ctrl + J maiúsculo (ou seja, Ctrl + Shift + j)
+            # =====================================================================
+            janela.bind("<Control-J>", comando_secreto)
+            
+            # Bloqueia cliques acidentais do mouse para evitar que a janela perca o foco
+            janela.bind("<Button-1>", lambda e: "break")
+            janela.bind("<Button-2>", lambda e: "break")
+            janela.bind("<Button-3>", lambda e: "break")
+
+            janelas.append(janela)
+
+        if janelas:
+            raiz.mainloop()
 
 
 if __name__ == "__main__":
