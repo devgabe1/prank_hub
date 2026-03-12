@@ -51,6 +51,12 @@ class PrankHubApp(ctk.CTk):
                 "descricao": "periódico",
                 "funcao": self.tela_azul_falsa_multi_tela,
                 "esconder_para_sempre": False
+            },
+            {
+                "nome": "piscar_monitores_periodico",
+                "descricao": "periódico",
+                "funcao": self.piscar_monitores_periodico,
+                "esconder_para_sempre": False
             }
         ]
 
@@ -261,6 +267,61 @@ class PrankHubApp(ctk.CTk):
         if janelas:
             raiz.mainloop()
 
+    def piscar_monitores_periodico(self):
+        print("Iniciando serviço de flash nos monitores...")
+
+        # Avisa ao SO que o programa lida com a escala real (DPI)
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except AttributeError:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except AttributeError:
+                pass
+
+        # Intervalo de 5 minutos (300 segundos)
+        intervalo_segundos = 5 * 60
+
+        try:
+            while True:
+                janelas = []
+                monitores = get_monitors()
+                
+                # 1. Cria as janelas brancas para cada monitor
+                for indice, monitor in enumerate(monitores):
+                    if indice == 0:
+                        janela = tk.Tk()
+                        raiz = janela
+                    else:
+                        janela = tk.Toplevel(raiz)
+                    
+                    janela.overrideredirect(True)
+                    janela.geometry(f"{monitor.width}x{monitor.height}+{monitor.x}+{monitor.y}")
+                    janela.configure(bg="black") # Cor branca para simular um flash
+                    janela.attributes("-topmost", True)
+                    
+                    # Força o SO a desenhar a janela imediatamente antes do loop principal
+                    janela.update_idletasks()
+                    janelas.append(janela)
+
+                # 2. Renderiza as janelas na tela
+                if janelas:
+                    raiz.update()
+                
+                # 3. Mantém a tela branca por apenas 500 milissegundos (0.5 segundos)
+                time.sleep(0.5)
+                
+                # 4. Destrói as janelas, devolvendo a tela ao normal
+                if janelas:
+                    raiz.destroy()
+                    
+                print(f"[{time.strftime('%H:%M:%S')}] Flash executado. Aguardando 5 minutos...")
+                
+                # 5. Adormece a thread até o próximo ciclo
+                time.sleep(intervalo_segundos)
+
+        except Exception as e:
+            print(f"Erro no serviço de flash: {e}")
 
 if __name__ == "__main__":
     app = PrankHubApp()
