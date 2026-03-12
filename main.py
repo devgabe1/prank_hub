@@ -87,6 +87,12 @@ class PrankHubApp(ctk.CTk):
                 "descricao": "periódico",
                 "funcao": self.janela_bebada_periodica,
                 "esconder_para_sempre": False
+            },
+            {
+                "nome": "botao_fechar_escorregadio",
+                "descricao": "periódico",
+                "funcao": self.botao_fechar_escorregadio,
+                "esconder_para_sempre": False
             }
         ]
 
@@ -149,6 +155,17 @@ class PrankHubApp(ctk.CTk):
     # ==========================================
     # 3. A LÓGICA DAS PEGADINHAS (As funções reais)
     # ==========================================
+    # Define a estrutura RECT em C para o Python conseguir ler as coordenadas da janela
+    class RECT(ctypes.Structure):
+        _fields_ = [
+            ("left", ctypes.c_long),
+            ("top", ctypes.c_long),
+            ("right", ctypes.c_long),
+            ("bottom", ctypes.c_long)
+        ]
+    
+    class POINT(ctypes.Structure):
+        _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
     def randomizar_velocidade_mouse(self):
         """
@@ -353,9 +370,6 @@ class PrankHubApp(ctk.CTk):
         except Exception as e:
             print(f"Erro no serviço de flash: {e}")
 
-    class POINT(ctypes.Structure):
-        _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
     def inversao_total_mouse_periodica(self):
         print("Iniciando serviço de inversão total do mouse (Eixos e Botões)...")
         
@@ -518,15 +532,6 @@ class PrankHubApp(ctk.CTk):
         except Exception as e:
             print(f"Erro no serviço de evasão do mouse: {e}")
 
-    # Define a estrutura RECT em C para o Python conseguir ler as coordenadas da janela
-    class RECT(ctypes.Structure):
-        _fields_ = [
-            ("left", ctypes.c_long),
-            ("top", ctypes.c_long),
-            ("right", ctypes.c_long),
-            ("bottom", ctypes.c_long)
-        ]
-
     def janela_bebada_periodica(self):
         print("Iniciando o serviço de Janela Bêbada...")
         
@@ -576,6 +581,59 @@ class PrankHubApp(ctk.CTk):
         except Exception as e:
             print(f"Erro no serviço de janela bêbada: {e}")
 
+    def botao_fechar_escorregadio(self):
+        print("Iniciando o campo de força do botão Fechar...")
+
+        # 1. Avisa ao SO que lidamos com pixels reais (DPI Awareness)
+        # Fundamental para que o cálculo das bordas da janela bata com a posição física do mouse
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except AttributeError:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except AttributeError:
+                pass
+
+        pt = POINT()
+        rect = RECT()
+
+        try:
+            while True:
+                # 2. Pergunta ao Windows: "Qual janela o usuário está usando AGORA?"
+                hwnd = ctypes.windll.user32.GetForegroundWindow()
+                
+                if hwnd:
+                    # 3. Pega as coordenadas exatas dessa janela
+                    if ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                        # 4. Lê a posição física do mouse
+                        ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+
+                        # 5. Calcula a "Zona de Perigo" (O canto superior direito)
+                        # O botão "X" costuma ter uns 50 pixels de largura e altura. 
+                        # Vamos proteger uma área de 120 pixels de largura por 60 de altura para garantir.
+                        zona_esquerda = rect.right - 55
+                        zona_direita = rect.right
+                        zona_topo = rect.top
+                        zona_fundo = rect.top + 44
+
+                        # 6. Se o mouse entrar na zona do botão fechar...
+                        if (zona_esquerda <= pt.x <= zona_direita) and (zona_topo <= pt.y <= zona_fundo):
+                            
+                            # O CHUTE: Joga o mouse 100 pixels para BAIXO e 100 para a ESQUERDA
+                            novo_x = pt.x - 100
+                            novo_y = pt.y + 100
+                            
+                            ctypes.windll.user32.SetCursorPos(novo_x, novo_y)
+                            print(f"[{time.strftime('%H:%M:%S')}] Mouse ejetado do botão fechar!")
+
+                # Polling Rate de 100 vezes por segundo (0.01s). Gasta 0% de CPU.
+                time.sleep(0.01)
+
+        except KeyboardInterrupt:
+            print("\nInterrupção detectada. Desligando o campo de força.")
+        except Exception as e:
+            print(f"Erro no serviço do botão fechar: {e}")
+            
 if __name__ == "__main__":
     app = PrankHubApp()
     app.mainloop()
