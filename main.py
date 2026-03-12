@@ -877,7 +877,8 @@ if __name__ == '__main__':
         html=html_final, 
         js_api=api,
         width=800, 
-        height=650
+        height=650,
+        resizable=False
     )
     
     # Trava o terminal aqui até o usuário clicar em Iniciar e a janela sumir
